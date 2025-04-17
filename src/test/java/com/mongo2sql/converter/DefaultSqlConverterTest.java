@@ -1,16 +1,16 @@
 package com.mongo2sql.converter;
 
+import static org.junit.Assert.assertEquals;
+
+import org.junit.Test;
+
 import com.mongo2sql.parser.AggregationPipeline;
 import com.mongo2sql.parser.MongoAggregationParser;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class DefaultSqlConverterTest {
     private DefaultSqlConverter converter;
     private MongoAggregationParser parser;
 
-    @BeforeEach
     void setUp() {
         converter = new DefaultSqlConverter();
         parser = new MongoAggregationParser();
