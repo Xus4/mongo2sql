@@ -22,8 +22,8 @@ public class MongoQueryParameterExtractor {
     public static List<QueryParameter> parse(String mongoQuery) {
         List<QueryParameter> params = new ArrayList<>();
         try {
-            JsonNode rootNode = new MongoAggregationParser().getObjectMapper().readTree(mongoQuery);
-            JsonNode commandNode = rootNode.get("command");
+            MongoAggregationParser parser = new MongoAggregationParser();
+            JsonNode commandNode = parser.getPipelineNode(mongoQuery);
 
             for (JsonNode stageNode : commandNode) {
                 String operator = stageNode.fieldNames().next();
@@ -37,10 +37,15 @@ public class MongoQueryParameterExtractor {
 
                         if (value.isTextual()) {
                             String textValue = value.asText();
-                            if (textValue.startsWith("$")) {
-                                String paramName = textValue.substring(1);
-                                if (paramName.startsWith(":context.props.appendData.")) {
-                                    paramName = paramName.substring(":context.props.appendData.".length());
+                            if (textValue.startsWith("$") || textValue.startsWith("${")) {
+                                String paramName;
+                                if (textValue.startsWith("${")) {
+                                    paramName = textValue.substring(2, textValue.length() - 1);
+                                } else {
+                                    paramName = textValue.substring(1);
+                                    if (paramName.startsWith(":context.props.appendData.")) {
+                                        paramName = paramName.substring(":context.props.appendData.".length());
+                                    }
                                 }
                                 params.add(new QueryParameter(paramName, "String", null));
                             }

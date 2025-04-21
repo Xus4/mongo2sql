@@ -11,8 +11,11 @@ import java.util.Map;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class FreemarkerJdbcGenerator implements JdbcCodeGenerator {
+    private static final Logger logger = Logger.getLogger(FreemarkerJdbcGenerator.class.getName());
     private final Configuration freemarkerConfig;
     private static final String DEFAULT_JDBC_URL = "jdbc:mysql://localhost:3306/demo";
     private static final String DEFAULT_USERNAME = "root";
@@ -28,12 +31,13 @@ public class FreemarkerJdbcGenerator implements JdbcCodeGenerator {
         return generateCode(sqlQuery,collectionName,params, DEFAULT_JDBC_URL, DEFAULT_USERNAME, DEFAULT_PASSWORD);
     }
     
-	public String generateCode(String sqlQuery,String collectionName,  List<QueryParameter> params, String jdbcUrl, String username, String password) {
+	private String generateCode(String sqlQuery,String collectionName,  List<QueryParameter> params, String jdbcUrl, String username, String password) {
         try {
             Template template = freemarkerConfig.getTemplate("jdbc_template.ftl");
             Map<String, Object> dataModel = new HashMap<>();
             dataModel.put("sqlQuery", sqlQuery);
-            dataModel.put("collectionName", collectionName);
+            String capitalizedCollectionName = collectionName.substring(0, 1).toUpperCase() + collectionName.substring(1);
+            dataModel.put("collectionName", capitalizedCollectionName);
             dataModel.put("params", params);
 
             dataModel.put("jdbcUrl", jdbcUrl);
@@ -48,12 +52,24 @@ public class FreemarkerJdbcGenerator implements JdbcCodeGenerator {
         }
     }
     
-    public String generateCodeToFile(String sqlQuery, String collectionName, List<QueryParameter> params, String jdbcUrl, String username, String password, String filePath) {
+    public String generateFile(String sqlQuery, String collectionName, List<QueryParameter> params) {
         try {
-            String code = generateCode(sqlQuery, collectionName, params, jdbcUrl, username, password);
-            Files.write(Paths.get(filePath), code.getBytes(StandardCharsets.UTF_8));
+            String code = generateCode(sqlQuery, collectionName, params);
+            String capitalizedCollectionName = collectionName.substring(0, 1).toUpperCase() + collectionName.substring(1);
+            String filePath = "src/main/java/com/mongo2sql/jdbc/" + capitalizedCollectionName + "JDBC.java";
+            
+            java.nio.file.Path path = Paths.get(filePath);
+            if (Files.exists(path)) {
+                logger.info("删除已存在的文件: " + filePath);
+                Files.delete(path);
+            }
+            
+            Files.createDirectories(path.getParent());
+            Files.write(path, code.getBytes(StandardCharsets.UTF_8));
+            logger.info("成功生成文件: " + filePath);
             return code;
         } catch (IOException e) {
+            logger.log(Level.SEVERE, "生成文件失败: " + e.getMessage(), e);
             throw new RuntimeException("Failed to write JDBC code to file", e);
         }
     }

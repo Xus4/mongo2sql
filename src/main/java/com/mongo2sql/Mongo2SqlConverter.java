@@ -64,6 +64,6 @@ public class Mongo2SqlConverter {
         if (params == null || params.isEmpty()) {
             throw new IllegalArgumentException("Params cannot be null or empty");
         }
-        return jdbcGenerator.generateCode(sqlQuery, collectionName, params);
+        return jdbcGenerator.generateFile(sqlQuery, collectionName, params);
     }
 }

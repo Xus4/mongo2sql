@@ -10,26 +10,24 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 
-public class ${collectionName}JDBC {
+public class TestCollectionJDBC {
 
     private static Connection getConnection() throws Exception {
         Class.forName("com.mysql.cj.jdbc.Driver");
-        String jdbcUrl = "${jdbcUrl}";
-        String username = "${username}";
-        String password = "${password}";
+        String jdbcUrl = "jdbc:mysql://localhost:3306/demo";
+        String username = "root";
+        String password = "123456";
         return DriverManager.getConnection(jdbcUrl, username, password);
     }
 
-    public static List<Map<String, Object>> executeQuery(<#list params as param>${param.type} ${param.name}<#sep>, </#sep></#list>) {
-        String sql = "${sqlQuery}";
+    public static List<Map<String, Object>> executeQuery(String uniqueId) {
+        String sql = "SELECT * FROM testCollection WHERE uniqueId = ?";
         List<Map<String, Object>> resultList = new ArrayList<>();
         
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
              
-            <#list params as param>
-            stmt.setObject(${param?index + 1}, ${param.name});
-            </#list>
+            stmt.setObject(1, uniqueId);
 
             ResultSet rs = stmt.executeQuery();
             ResultSetMetaData metaData = rs.getMetaData();
@@ -55,11 +53,9 @@ public class ${collectionName}JDBC {
 
     public static void main(String[] args) {
         try {
-            <#list params as param>
-            ${param.type} test${param.name?cap_first} = <#if param.type == "String">"test"<#elseif param.type == "int" || param.type == "Integer">1<#elseif param.type == "long" || param.type == "Long">1L<#elseif param.type == "double" || param.type == "Double">1.0<#elseif param.type == "boolean" || param.type == "Boolean">true<#else>null</#if>;
-            </#list>
+            String testUniqueId = "0000";
             
-            List<Map<String, Object>> results = executeQuery(<#list params as param>test${param.name?cap_first}<#sep>, </#sep></#list>);
+            List<Map<String, Object>> results = executeQuery(testUniqueId);
             System.out.println("查询结果：");
             for (Map<String, Object> row : results) {
                 System.out.println(row);

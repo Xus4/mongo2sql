@@ -17,6 +17,10 @@ public class MongoAggregationParser {
      */
     public MongoAggregationParser() {
         this.objectMapper = new ObjectMapper();
+        // 配置ObjectMapper以处理格式化的JSON字符串
+        this.objectMapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
+        this.objectMapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
+        this.objectMapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_COMMENTS, true);
     }
 
     /**
@@ -29,10 +33,15 @@ public class MongoAggregationParser {
     public AggregationPipeline parse(String mongoQuery) {
         try {
             JsonNode rootNode = objectMapper.readTree(mongoQuery);
-            JsonNode commandNode = rootNode.get("command");
+            JsonNode pipelineNode = rootNode.get("command");
+            
+            // 如果没有command字段，则直接使用根节点作为管道数组
+            if (pipelineNode == null) {
+                pipelineNode = rootNode;
+            }
             
             List<PipelineStage> stages = new ArrayList<>();
-            for (JsonNode stageNode : commandNode) {
+            for (JsonNode stageNode : pipelineNode) {
                 String operator = stageNode.fieldNames().next();
                 JsonNode operatorValue = stageNode.get(operator);
                 
@@ -66,6 +75,22 @@ public class MongoAggregationParser {
                 return new ProjectStage(operatorValue);
             default:
                 throw new UnsupportedOperationException("Unsupported aggregation operator: " + operator);
+        }
+    }
+
+    public JsonNode getPipelineNode(String mongoQuery) {
+        try {
+            JsonNode rootNode = objectMapper.readTree(mongoQuery);
+            JsonNode pipelineNode = rootNode.get("command");
+            
+            // 如果没有command字段，则直接使用根节点作为管道数组
+            if (pipelineNode == null) {
+                pipelineNode = rootNode;
+            }
+            
+            return pipelineNode;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get pipeline node from MongoDB query", e);
         }
     }
 

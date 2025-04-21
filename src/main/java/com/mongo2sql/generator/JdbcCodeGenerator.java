@@ -10,4 +10,6 @@ public interface JdbcCodeGenerator {
      * @return The generated JDBC code as a string
      */
     String generateCode(String sqlQuery,String collectionName, List<QueryParameter> params);
+
+    String generateFile(String sqlQuery, String collectionName, List<QueryParameter> params);
 }
