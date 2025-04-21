@@ -12,7 +12,7 @@ import java.util.Map;
  * MongoQueryParameterExtractor负责解析MongoDB查询字符串中的参数。
  * 该类包含一个静态方法parse，用于识别并提取以$开头的变量。
  */
-public class MongoQueryParameterExtractor {
+public class MongoQueryParameterParser {
 
     /**
      * 解析MongoDB查询字符串中的参数。

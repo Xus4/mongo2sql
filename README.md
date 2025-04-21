@@ -60,32 +60,36 @@ String customJdbcCode = converter.generateJdbcCode(
 
 ## 构建项目
 
-```bash
-# 编译项目
-mvn compile
+## 安装步骤
 
-# 运行测试
-mvn test
+1. 克隆仓库：
+   ```bash
+   git clone https://github.com/yourusername/mongo2sql.git
+   ```
 
-# 打包
-mvn package
-```
+2. 导入项目到您的IDE（如Eclipse或IntelliJ IDEA）。
 
-## 开发计划
+3. 使用Maven构建项目：
+   ```bash
+   mvn clean install
+   ```
 
-- [ ] 支持更多MongoDB聚合操作符
-- [ ] 优化SQL查询性能
-- [ ] 添加查询验证功能
-- [ ] 支持更多数据库方言
+## 使用说明
+
+- 使用`Mongo2SqlConverter`类进行转换。
+- 调用`convertToSql`方法将MongoDB查询转换为SQL。
+- 使用`generateJdbcCode`方法生成JDBC代码。
 
 ## 贡献指南
 
-欢迎提交Issue和Pull Request来帮助改进项目。在提交代码前，请确保：
+欢迎贡献代码！请遵循以下步骤：
 
-1. 代码符合项目的编码规范
-2. 添加适当的单元测试
-3. 更新相关文档
+1. Fork本仓库。
+2. 创建您的特性分支：`git checkout -b feature/AmazingFeature`。
+3. 提交您的更改：`git commit -m '添加了一些特性'`。
+4. 推送到分支：`git push origin feature/AmazingFeature`。
+5. 打开一个Pull Request。
 
 ## 许可证
 
-本项目采用MIT许可证。详见[LICENSE](LICENSE)文件。
+此项目使用MIT许可证。详情请参阅LICENSE文件。

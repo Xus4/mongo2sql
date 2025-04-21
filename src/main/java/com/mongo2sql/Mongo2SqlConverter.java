@@ -9,7 +9,6 @@ import com.mongo2sql.generator.JdbcCodeGenerator;
 import com.mongo2sql.generator.QueryParameter;
 import com.mongo2sql.parser.AggregationPipeline;
 import com.mongo2sql.parser.MongoAggregationParser;
-import com.mongo2sql.parser.MongoQueryParameterExtractor;
 
 /**
  * MongoDB聚合查询转SQL转换器
