@@ -61,9 +61,6 @@ public class Mongo2SqlConverter {
     public String generateJdbcCode(String mongoQuery, String collectionName) {
         String sqlQuery = convertToSql(mongoQuery, collectionName);
         List<QueryParameter> params = parseParams(mongoQuery);
-        if (params == null || params.isEmpty()) {
-            throw new IllegalArgumentException("Params cannot be null or empty");
-        }
         return jdbcGenerator.generateFile(sqlQuery, collectionName, params);
     }
 }

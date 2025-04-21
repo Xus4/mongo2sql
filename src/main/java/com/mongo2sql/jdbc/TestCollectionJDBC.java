@@ -20,14 +20,14 @@ public class TestCollectionJDBC {
         return DriverManager.getConnection(jdbcUrl, username, password);
     }
 
-    public static List<Map<String, Object>> executeQuery(String uniqueId) {
-        String sql = "SELECT * FROM testCollection WHERE uniqueId = ?";
+    public static List<Map<String, Object>> executeQuery() {
+        String sql = "SELECT * FROM testCollection";
+        System.out.println("执行SQL语句: " + sql);
         List<Map<String, Object>> resultList = new ArrayList<>();
         
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
              
-            stmt.setObject(1, uniqueId);
 
             ResultSet rs = stmt.executeQuery();
             ResultSetMetaData metaData = rs.getMetaData();
@@ -41,7 +41,6 @@ public class TestCollectionJDBC {
                     row.put(columnName, value);
                 }
                 resultList.add(row);
-                System.out.println(row); // 打印每一行
             }
 
         } catch (Exception e) {
@@ -53,9 +52,8 @@ public class TestCollectionJDBC {
 
     public static void main(String[] args) {
         try {
-            String testUniqueId = "0000";
             
-            List<Map<String, Object>> results = executeQuery(testUniqueId);
+            List<Map<String, Object>> results = executeQuery();
             System.out.println("查询结果：");
             for (Map<String, Object> row : results) {
                 System.out.println(row);

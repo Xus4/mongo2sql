@@ -22,6 +22,7 @@ public class ${collectionName}JDBC {
 
     public static List<Map<String, Object>> executeQuery(<#list params as param>${param.type} ${param.name}<#sep>, </#sep></#list>) {
         String sql = "${sqlQuery}";
+        System.out.println("执行SQL语句: " + sql);
         List<Map<String, Object>> resultList = new ArrayList<>();
         
         try (Connection conn = getConnection();
@@ -43,7 +44,6 @@ public class ${collectionName}JDBC {
                     row.put(columnName, value);
                 }
                 resultList.add(row);
-                System.out.println(row); // 打印每一行
             }
 
         } catch (Exception e) {

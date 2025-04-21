@@ -5,11 +5,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.mongo2sql.parser.AggregationPipeline;
 import com.mongo2sql.parser.LookupStage;
 import com.mongo2sql.parser.MatchStage;
 import com.mongo2sql.parser.PipelineStage;
 import com.mongo2sql.parser.ProjectStage;
+import com.mongo2sql.parser.SortStage;
 
 /**
  * DefaultSqlConverter是MongoDB聚合管道到SQL查询的默认转换器实现。
@@ -31,8 +33,12 @@ public class DefaultSqlConverter implements SqlConverter {
         StringBuilder whereClause = new StringBuilder();
         StringBuilder joinClause = new StringBuilder();
         StringBuilder selectClause = new StringBuilder("SELECT *");
+        StringBuilder orderByClause = new StringBuilder();
         
         for (PipelineStage stage : pipeline.getStages()) {
+            if (stage instanceof SortStage) {
+                handleSortStage((SortStage) stage, orderByClause);
+            }
             if (stage instanceof MatchStage) {
                 handleMatchStage((MatchStage) stage, whereClause);
             } else if (stage instanceof LookupStage) {
@@ -52,6 +58,10 @@ public class DefaultSqlConverter implements SqlConverter {
         
         if (whereClause.length() > 0) {
             sqlParts.add("WHERE " + whereClause.toString());
+        }
+        
+        if (orderByClause.length() > 0) {
+            sqlParts.add("ORDER BY " + orderByClause.toString());
         }
         
         return String.join(" ", sqlParts);
@@ -127,6 +137,21 @@ public class DefaultSqlConverter implements SqlConverter {
             selectClause.append("*");
         } else {
             selectClause.append(columnJoiner.toString());
+        }
+    }
+    private void handleSortStage(SortStage stage, StringBuilder orderByClause) {
+        JsonNode sortCriteria = stage.getCriteria();
+        StringJoiner sortJoiner = new StringJoiner(", ");
+
+        sortCriteria.fields().forEachRemaining(entry -> {
+            String field = entry.getKey();
+            int direction = entry.getValue().asInt();
+            String columnName = field.substring(field.lastIndexOf('.') + 1);
+            sortJoiner.add(columnName + (direction == 1 ? " ASC" : " DESC"));
+        });
+
+        if (sortJoiner.length() > 0) {
+            orderByClause.append(sortJoiner.toString());
         }
     }
 }

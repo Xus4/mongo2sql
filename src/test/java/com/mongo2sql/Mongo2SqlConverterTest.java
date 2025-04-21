@@ -22,13 +22,16 @@ public class Mongo2SqlConverterTest {
     @Test
     public void testGenerateJdbcCodeWithSpecialParam() {
         Mongo2SqlConverter converter = new Mongo2SqlConverter();
-        String mongoQuery = "[\r\n"
-        		+ "  {\r\n"
-        		+ "    \"$match\": {\r\n"
-        		+ "      \"uniqueId\": \"${uniqueId}\"\r\n"
+        String mongoQuery = "{\r\n"
+        		+ "  \"command\": [\r\n"
+        		+ "    {\r\n"
+        		+ "      \"$unwind\": {\r\n"
+        		+ "        \"path\": \"$content.rentSchedule.rentCell\",\r\n"
+        		+ "        \"preserveNullAndEmptyArrays\": true\r\n"
+        		+ "      }\r\n"
         		+ "    }\r\n"
-        		+ "  }\r\n"
-        		+ "]";
+        		+ "  ]\r\n"
+        		+ "}";
         String collectionName = "testCollection";
 
         String jdbcCode = converter.generateJdbcCode(mongoQuery, collectionName);
