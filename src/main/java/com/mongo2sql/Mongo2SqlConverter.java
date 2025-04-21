@@ -9,6 +9,7 @@ import com.mongo2sql.generator.JdbcCodeGenerator;
 import com.mongo2sql.generator.QueryParameter;
 import com.mongo2sql.parser.AggregationPipeline;
 import com.mongo2sql.parser.MongoAggregationParser;
+import com.mongo2sql.parser.MongoQueryParameterParser;
 
 /**
  * MongoDB聚合查询转SQL转换器
@@ -48,7 +49,7 @@ public class Mongo2SqlConverter {
      * @return
      */
     public List<QueryParameter> parseParams(String mongoQuery) {
-        return MongoQueryParameterExtractor.parse(mongoQuery);
+        return MongoQueryParameterParser.parse(mongoQuery);
     }
     
     
