@@ -1,10 +1,8 @@
 package com.mongo2sql;
 
-
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
-
 
 public class Mongo2SqlConverterTest {
 
@@ -21,22 +19,28 @@ public class Mongo2SqlConverterTest {
 //        assertTrue(jdbcCode.contains("FROM testCollection"));
 //    }
 //    
-    @Test
-    public void testGenerateJdbcCodeWithSpecialParam() {
-        Mongo2SqlConverter converter = new Mongo2SqlConverter();
-        String mongoQuery = "{\r\n"
-        		+ "  \"command\": [\r\n"
-        		+ "    {\r\n"
-        		+ "      \"$unwind\": {\r\n"
-        		+ "        \"path\": \"$content.rentSchedule.rentCell\",\r\n"
-        		+ "        \"preserveNullAndEmptyArrays\": true\r\n"
-        		+ "      }\r\n"
-        		+ "    }\r\n"
-        		+ "  ]\r\n"
-        		+ "}";
-        String collectionName = "testCollection";
+	@Test
+	public void testGenerateJdbcCodeWithSpecialParam() {
+		Mongo2SqlConverter converter = new Mongo2SqlConverter();
+		String mongoQuery = "{\r\n"
+				+ "  \"command\": [\r\n"
+				+ "    {\r\n"
+				+ "      \"$project\": {\r\n"
+				+ "        \"content\": 1,\r\n"
+				+ "        \"uniqueId\": 1,\r\n"
+				+ "        \"createdTime\": 1\r\n"
+				+ "      }\r\n"
+				+ "    },\r\n"
+				+ "    {\r\n"
+				+ "      \"$sort\": {\r\n"
+				+ "        \"createdTime\": -1\r\n"
+				+ "      }\r\n"
+				+ "    }\r\n"
+				+ "  ]\r\n"
+				+ "}";
+		String collectionName = "testCollection";
 
-        String jdbcCode = converter.generateJdbcCode(mongoQuery, collectionName);
-        System.out.println(jdbcCode);
-    }
+		String jdbcCode = converter.generateJdbcCode(mongoQuery, collectionName);
+		System.out.println(jdbcCode);
+	}
 }

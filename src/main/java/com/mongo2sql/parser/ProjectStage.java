@@ -58,6 +58,11 @@ public class ProjectStage implements PipelineStage {
             } else if (fieldValue.isBoolean()) {
                 // 处理布尔值（true表示包含，false表示排除）
                 projections.put(fieldName, fieldValue.asBoolean() ? 1 : 0);
+            } else if (fieldValue.isTextual()) {
+                // 处理字段重命名，例如："xxx": "approvalDate"
+                Map<String, Object> renameExpression = new HashMap<>();
+                renameExpression.put("$field", fieldValue.asText());
+                projections.put(fieldName, renameExpression);
             }
         }
     }
@@ -80,8 +85,18 @@ public class ProjectStage implements PipelineStage {
             if (operatorValue.isArray()) {
                 // 处理数组类型的操作符参数
                 expression.put(operatorName, operatorValue);
+            } else if (operatorValue.isTextual()) {
+                // 处理字段引用或字符串值
+                String value = operatorValue.asText();
+                if (value.startsWith("$")) {
+                    // 如果是字段引用（以$开头），则创建字段引用表达式
+                    expression.put("$field", value.substring(1));
+                } else {
+                    // 否则作为普通字符串值处理
+                    expression.put(operatorName, value);
+                }
             } else {
-                // 处理单个值类型的操作符参数
+                // 处理其他类型的操作符参数
                 expression.put(operatorName, operatorValue);
             }
         }

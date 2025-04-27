@@ -1,6 +1,7 @@
 package com.mongo2sql.converter;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -12,6 +13,7 @@ import com.mongo2sql.parser.MatchStage;
 import com.mongo2sql.parser.PipelineStage;
 import com.mongo2sql.parser.ProjectStage;
 import com.mongo2sql.parser.SortStage;
+import com.mongo2sql.parser.UnwindStage;
 
 /**
  * DefaultSqlConverter是MongoDB聚合管道到SQL查询的默认转换器实现。
@@ -21,6 +23,7 @@ import com.mongo2sql.parser.SortStage;
  * @see AggregationPipeline
  */
 public class DefaultSqlConverter implements SqlConverter {
+    private String collectionName; // 存储当前处理的集合名称
     /**
      * 将MongoDB聚合管道转换为SQL查询字符串。
      * 
@@ -29,6 +32,7 @@ public class DefaultSqlConverter implements SqlConverter {
      */
     @Override
     public String convert(AggregationPipeline pipeline, String collectionName) {
+        this.collectionName = collectionName; // 保存集合名称
         List<String> sqlParts = new ArrayList<>();
         StringBuilder whereClause = new StringBuilder();
         StringBuilder joinClause = new StringBuilder();
@@ -45,6 +49,8 @@ public class DefaultSqlConverter implements SqlConverter {
                 handleLookupStage((LookupStage) stage, joinClause);
             } else if (stage instanceof ProjectStage) {
                 handleProjectStage((ProjectStage) stage, selectClause);
+            } else if (stage instanceof UnwindStage) {
+                handleUnwindStage((UnwindStage) stage, joinClause);
             }
         }
         
@@ -82,12 +88,43 @@ public class DefaultSqlConverter implements SqlConverter {
         StringJoiner conditionJoiner = new StringJoiner(" AND ");
         for (Map.Entry<String, Object> condition : conditions.entrySet()) {
             String field = condition.getKey();
+            Object value = condition.getValue();
+            
             // 将MongoDB的点号路径转换为SQL列名（例如：content.formData.flowId -> flowId）
             String columnName = field.substring(field.lastIndexOf('.') + 1);
             if (columnName.isEmpty()) {
                 columnName = field;
             }
-            conditionJoiner.add(columnName + " = ?");
+            
+            // 处理操作符条件
+            if (value instanceof Map) {
+                Map<String, Object> operatorMap = (Map<String, Object>) value;
+                String operator = (String) operatorMap.get("operator");
+                Object values = operatorMap.get("values");
+                
+                if ("$in".equals(operator) && values instanceof Object[]) {
+                    Object[] inArray = (Object[]) values;
+                    StringJoiner valueJoiner = new StringJoiner(", ");
+                    for (Object inValue : inArray) {
+                        if (inValue instanceof String) {
+                            valueJoiner.add("'" + inValue.toString() + "'");
+                        } else {
+                            valueJoiner.add(inValue.toString());
+                        }
+                    }
+                    conditionJoiner.add(columnName + " IN (" + valueJoiner.toString() + ")");
+                } else {
+                    // 对于未知的操作符，使用等于操作符
+                    conditionJoiner.add(columnName + " = '" + value.toString() + "'");
+                }
+            } else {
+                // 处理普通等值条件
+                if (value instanceof String) {
+                    conditionJoiner.add(columnName + " = '" + value.toString() + "'");
+                } else {
+                    conditionJoiner.add(columnName + " = " + value.toString());
+                }
+            }
         }
         
         whereClause.append(conditionJoiner.toString());
@@ -112,33 +149,79 @@ public class DefaultSqlConverter implements SqlConverter {
      */
     private void handleProjectStage(ProjectStage stage, StringBuilder selectClause) {
         Map<String, Object> projections = stage.getProjections();
-        if (projections.isEmpty()) {
-            return;
-        }
-        
-        // 清除默认的SELECT *
+        if (projections.isEmpty()) return;
+    
         selectClause.setLength(0);
         selectClause.append("SELECT ");
-        
-        StringJoiner columnJoiner = new StringJoiner(", ");
-        for (Map.Entry<String, Object> projection : projections.entrySet()) {
-            String field = projection.getKey();
-            Object include = projection.getValue();
-            
-            // 只处理被包含的字段
-            if (include instanceof Integer && (Integer)include == 1) {
-                String columnName = stage.toSqlColumnName(field);
-                columnJoiner.add(columnName);
+    
+        List<String> includes = new ArrayList<>();
+        List<String> excludes = new ArrayList<>();
+        Map<String, String> aliases = new HashMap<>();
+    
+        projections.forEach((newField, value) -> {
+            if (value instanceof Integer) {
+                if ((Integer) value == 1) {
+                    includes.add(stage.toSqlColumnName(newField));
+                } else {
+                    excludes.add(stage.toSqlColumnName(newField));
+                }
+            } else if (value instanceof Boolean) {
+                if ((Boolean) value) {
+                    includes.add(stage.toSqlColumnName(newField));
+                }
+            } else if (value instanceof String) {
+                aliases.put(newField, stage.toSqlColumnName((String) value));
+            } else if (value instanceof Map) {
+                Map<?, ?> expr = (Map<?, ?>) value;
+                if (expr.containsKey("$field")) {
+                    String original = expr.get("$field").toString();
+                    aliases.put(newField, stage.toSqlColumnName(original));
+                }
             }
-        }
-        
-        // 如果没有指定字段，使用所有字段
-        if (columnJoiner.length() == 0) {
-            selectClause.append("*");
+        });
+    
+        StringJoiner columns = new StringJoiner(", ");
+        includes.forEach(columns::add);
+        aliases.forEach((alias, col) -> columns.add(col + " AS " + alias));
+    
+        if (!excludes.isEmpty()) {
+            selectClause.append("* EXCEPT(").append(String.join(", ", excludes)).append(")");
+        } else if (columns.length() > 0) {
+            selectClause.append(columns);
         } else {
-            selectClause.append(columnJoiner.toString());
+            selectClause.append("*");
         }
     }
+    /**
+     * 处理MongoDB的$unwind阶段，将其转换为SQL的JOIN子句。
+     * 对于MongoDB中的数组字段，我们将其存储在独立的关联表中，表名采用'主表名_字段名'的格式。
+     * 
+     * @param stage $unwind阶段对象，包含要展开的数组字段路径
+     * @param joinClause SQL JOIN子句的StringBuilder对象
+     */
+    private void handleUnwindStage(UnwindStage stage, StringBuilder joinClause) {
+        String path = stage.getPath();
+        // 移除字段路径中的$符号
+        if (path.startsWith("$")) {
+            path = path.substring(1);
+        }
+        
+        // 获取数组字段名（去除路径中的点号）
+        String arrayField = path.substring(path.lastIndexOf('.') + 1);
+        
+        // 构建数组元素表名（约定：主表名_字段名）
+        String arrayTableName = String.format("%s_%s", this.collectionName, arrayField);
+        
+        // 构建JOIN子句，使用parent_id作为外键关联
+        String joinStatement = String.format(" %sJOIN %s ON %s.parent_id = %s.id",
+            stage.isPreserveNullAndEmptyArrays() ? "LEFT " : "INNER ",
+            arrayTableName,
+            arrayTableName,
+            this.collectionName);
+        
+        joinClause.append(joinStatement);
+    }
+    
     private void handleSortStage(SortStage stage, StringBuilder orderByClause) {
         JsonNode sortCriteria = stage.getCriteria();
         StringJoiner sortJoiner = new StringJoiner(", ");

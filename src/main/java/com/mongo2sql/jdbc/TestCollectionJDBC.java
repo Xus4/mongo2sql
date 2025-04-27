@@ -21,7 +21,7 @@ public class TestCollectionJDBC {
     }
 
     public static List<Map<String, Object>> executeQuery() {
-        String sql = "SELECT * FROM testCollection";
+        String sql = "SELECT createdTime, content, uniqueId FROM testCollection ORDER BY createdTime DESC";
         System.out.println("执行SQL语句: " + sql);
         List<Map<String, Object>> resultList = new ArrayList<>();
         
