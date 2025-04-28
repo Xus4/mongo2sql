@@ -1,6 +1,7 @@
 package com.mongo2sql;
 
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class Mongo2SqlConverterTest {
 
@@ -29,14 +30,18 @@ public class Mongo2SqlConverterTest {
 		System.out.println("生成的JDBC代码:\n" + jdbcCode);
 		
 		// 验证生成的JDBC代码是否包含必要的SQL查询结构
-		org.junit.Assert.assertTrue("JDBC代码应该包含SELECT语句", jdbcCode.contains("SELECT"));
-		org.junit.Assert.assertTrue("JDBC代码应该包含指定的字段", 
+		assertTrue(jdbcCode.contains("SELECT"), "JDBC代码应该包含SELECT语句");
+		assertTrue(
 			jdbcCode.toLowerCase().contains("content") && 
 			jdbcCode.toLowerCase().contains("uniqueid") && 
-			jdbcCode.toLowerCase().contains("createdtime"));
-		org.junit.Assert.assertTrue("JDBC代码应该包含FROM子句和表名", jdbcCode.contains("FROM " + collectionName));
-		org.junit.Assert.assertTrue("JDBC代码应该包含ORDER BY子句", 
+			jdbcCode.toLowerCase().contains("createdtime"),
+			"JDBC代码应该包含指定的字段"
+		);
+		assertTrue(jdbcCode.contains("FROM " + collectionName), "JDBC代码应该包含FROM子句和表名");
+		assertTrue(
 			jdbcCode.toLowerCase().contains("order by") && 
-			jdbcCode.toLowerCase().contains("createdtime"));
+			jdbcCode.toLowerCase().contains("createdtime"),
+			"JDBC代码应该包含ORDER BY子句"
+		);
 	}
 }
