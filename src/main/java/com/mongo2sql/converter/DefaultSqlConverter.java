@@ -105,6 +105,43 @@ public class DefaultSqlConverter implements SqlConverter {
             String field = condition.getKey();
             Object value = condition.getValue();
             
+            // 处理表达式操作符
+            if ("$expr".equals(field) && value instanceof Map) {
+                Map<String, Object> exprMap = (Map<String, Object>) value;
+                String operator = (String) exprMap.get("operator");
+                List<Object> operands = (List<Object>) exprMap.get("operands");
+                
+                if (operands != null && operands.size() == 2) {
+                    String leftOperand = convertOperand(operands.get(0));
+                    String rightOperand = convertOperand(operands.get(1));
+                    
+                    switch (operator) {
+                        case "$ne":
+                            conditionJoiner.add(leftOperand + " != " + rightOperand);
+                            break;
+                        case "$eq":
+                            conditionJoiner.add(leftOperand + " = " + rightOperand);
+                            break;
+                        case "$gt":
+                            conditionJoiner.add(leftOperand + " > " + rightOperand);
+                            break;
+                        case "$gte":
+                            conditionJoiner.add(leftOperand + " >= " + rightOperand);
+                            break;
+                        case "$lt":
+                            conditionJoiner.add(leftOperand + " < " + rightOperand);
+                            break;
+                        case "$lte":
+                            conditionJoiner.add(leftOperand + " <= " + rightOperand);
+                            break;
+                        default:
+                            // 对于未知的操作符，使用等于操作符
+                            conditionJoiner.add(leftOperand + " = " + rightOperand);
+                    }
+                }
+                continue;
+            }
+            
             // 将MongoDB的点号路径转换为SQL列名（例如：content.formData.flowId -> flowId）
             String columnName = field.substring(field.lastIndexOf('.') + 1);
             if (columnName.isEmpty()) {
@@ -115,10 +152,10 @@ public class DefaultSqlConverter implements SqlConverter {
             if (value instanceof Map) {
                 Map<String, Object> operatorMap = (Map<String, Object>) value;
                 String operator = (String) operatorMap.get("operator");
-                Object values = operatorMap.get("values");
+                Object operatorValue = operatorMap.get("values");
                 
-                if ("$in".equals(operator) && values instanceof Object[]) {
-                    Object[] inArray = (Object[]) values;
+                if ("$in".equals(operator) && operatorValue instanceof Object[]) {
+                    Object[] inArray = (Object[]) operatorValue;
                     StringJoiner valueJoiner = new StringJoiner(", ");
                     for (Object inValue : inArray) {
                         if (inValue instanceof String) {
@@ -129,8 +166,11 @@ public class DefaultSqlConverter implements SqlConverter {
                     }
                     conditionJoiner.add(columnName + " IN (" + valueJoiner.toString() + ")");
                 } else {
-                    // 对于未知的操作符，使用等于操作符
-                    conditionJoiner.add(columnName + " = '" + value.toString() + "'");
+                    // 处理比较操作符
+                    Object compareValue = operatorMap.get("value");
+                    String sqlOperator = convertOperator(operator);
+                    String sqlValue = convertValue(compareValue);
+                    conditionJoiner.add(columnName + " " + sqlOperator + " " + sqlValue);
                 }
             } else {
                 // 处理普通等值条件
@@ -143,6 +183,61 @@ public class DefaultSqlConverter implements SqlConverter {
         }
         
         whereClause.append(conditionJoiner.toString());
+    }
+    
+    /**
+     * 转换MongoDB操作符为SQL操作符
+     * @param operator MongoDB操作符
+     * @return SQL操作符
+     */
+    private String convertOperator(String operator) {
+        switch (operator) {
+            case "$eq":
+                return "=";
+            case "$ne":
+                return "!=";
+            case "$gt":
+                return ">";
+            case "$gte":
+                return ">=";
+            case "$lt":
+                return "<";
+            case "$lte":
+                return "<=";
+            default:
+                return "=";
+        }
+    }
+    
+    /**
+     * 转换值为SQL表达式
+     * @param value 值
+     * @return SQL表达式字符串
+     */
+    private String convertValue(Object value) {
+        if (value instanceof String) {
+            return "'" + value.toString() + "'";
+        } else {
+            return value.toString();
+        }
+    }
+    
+    /**
+     * 转换操作数为SQL表达式
+     * @param operand 操作数
+     * @return SQL表达式字符串
+     */
+    private String convertOperand(Object operand) {
+        if (operand instanceof MatchStage.FieldReference) {
+            // 如果是字段引用，直接使用字段名
+            return ((MatchStage.FieldReference) operand).getFieldName();
+        } else if (operand instanceof String) {
+            // 如果是字符串，添加引号
+            return "'" + operand + "'";
+        } else {
+            // 其他类型直接转换为字符串
+            return operand.toString();
+        }
     }
     
     /**

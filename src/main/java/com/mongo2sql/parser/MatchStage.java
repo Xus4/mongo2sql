@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * 表示MongoDB $match阶段的实现类，用于过滤文档。
@@ -34,18 +36,27 @@ public class MatchStage implements PipelineStage {
             JsonNode value = field.getValue();
             
             if (value.isObject()) {
-                // 处理操作符，如 $in
-                Iterator<Map.Entry<String, JsonNode>> operators = value.fields();
-                while (operators.hasNext()) {
-                    Map.Entry<String, JsonNode> operator = operators.next();
-                    String operatorName = operator.getKey();
-                    JsonNode operatorValue = operator.getValue();
-                    
-                    if ("$in".equals(operatorName) && operatorValue.isArray()) {
-                        Map<String, Object> inCondition = new HashMap<>();
-                        inCondition.put("operator", "$in");
-                        inCondition.put("values", parseArrayValues(operatorValue));
-                        conditions.put(fieldName, inCondition);
+                // 处理 $expr 操作符
+                if ("$expr".equals(fieldName)) {
+                    conditions.put("$expr", parseExpression(value));
+                } else {
+                    // 处理其他操作符，如 $in, $eq 等
+                    Iterator<Map.Entry<String, JsonNode>> operators = value.fields();
+                    while (operators.hasNext()) {
+                        Map.Entry<String, JsonNode> operator = operators.next();
+                        String operatorName = operator.getKey();
+                        JsonNode operatorValue = operator.getValue();
+                        
+                        Map<String, Object> condition = new HashMap<>();
+                        condition.put("operator", operatorName);
+                        
+                        if ("$in".equals(operatorName) && operatorValue.isArray()) {
+                            condition.put("values", parseArrayValues(operatorValue));
+                        } else if (isComparisonOperator(operatorName)) {
+                            condition.put("value", parseValue(operatorValue));
+                        }
+                        
+                        conditions.put(fieldName, condition);
                     }
                 }
             } else if (value.isTextual()) {
@@ -64,19 +75,76 @@ public class MatchStage implements PipelineStage {
         return conditions;
     }
     
+    /**
+     * 判断是否为比较操作符
+     * @param operator 操作符名称
+     * @return 是否为比较操作符
+     */
+    private boolean isComparisonOperator(String operator) {
+        return "$eq".equals(operator) || 
+               "$ne".equals(operator) || 
+               "$gt".equals(operator) || 
+               "$gte".equals(operator) || 
+               "$lt".equals(operator) || 
+               "$lte".equals(operator);
+    }
+    
+    /**
+     * 解析表达式操作符
+     * @param exprNode 表达式节点
+     * @return 解析后的表达式对象
+     */
+    private Map<String, Object> parseExpression(JsonNode exprNode) {
+        Map<String, Object> expression = new HashMap<>();
+        Iterator<Map.Entry<String, JsonNode>> operators = exprNode.fields();
+        
+        while (operators.hasNext()) {
+            Map.Entry<String, JsonNode> operator = operators.next();
+            String operatorName = operator.getKey();
+            JsonNode operatorValue = operator.getValue();
+            
+            if (operatorValue.isArray()) {
+                List<Object> operands = new ArrayList<>();
+                for (int i = 0; i < operatorValue.size(); i++) {
+                    JsonNode operand = operatorValue.get(i);
+                    if (operand.isTextual() && operand.asText().startsWith("$")) {
+                        // 处理字段引用
+                        operands.add(new FieldReference(operand.asText().substring(1)));
+                    } else {
+                        operands.add(parseValue(operand));
+                    }
+                }
+                expression.put("operator", operatorName);
+                expression.put("operands", operands);
+            }
+        }
+        
+        return expression;
+    }
+    
+    /**
+     * 解析单个值
+     * @param node JSON节点
+     * @return 解析后的值
+     */
+    private Object parseValue(JsonNode node) {
+        if (node.isTextual()) {
+            return node.asText();
+        } else if (node.isNumber()) {
+            return node.numberValue();
+        } else if (node.isBoolean()) {
+            return node.asBoolean();
+        } else if (node.isArray()) {
+            return parseArrayValues(node);
+        } else {
+            return node.toString();
+        }
+    }
+    
     private Object[] parseArrayValues(JsonNode arrayNode) {
         Object[] values = new Object[arrayNode.size()];
         for (int i = 0; i < arrayNode.size(); i++) {
-            JsonNode element = arrayNode.get(i);
-            if (element.isTextual()) {
-                values[i] = element.asText();
-            } else if (element.isNumber()) {
-                values[i] = element.numberValue();
-            } else if (element.isBoolean()) {
-                values[i] = element.asBoolean();
-            } else {
-                values[i] = element.toString();
-            }
+            values[i] = parseValue(arrayNode.get(i));
         }
         return values;
     }
@@ -84,5 +152,25 @@ public class MatchStage implements PipelineStage {
     @Override
     public String getType() {
         return "$match";
+    }
+    
+    /**
+     * 表示字段引用的内部类
+     */
+    public static class FieldReference {
+        private final String fieldName;
+        
+        public FieldReference(String fieldName) {
+            this.fieldName = fieldName;
+        }
+        
+        public String getFieldName() {
+            return fieldName;
+        }
+        
+        @Override
+        public String toString() {
+            return "$" + fieldName;
+        }
     }
 }

@@ -71,6 +71,7 @@ public class Mongo2SqlConverter {
      */
     public String generateJdbcCode(String mongoQuery, String collectionName) {
         String sqlQuery = convertToSql(mongoQuery, collectionName);
+        System.out.println(sqlQuery);
         List<QueryParameter> params = parseParams(mongoQuery);
         return jdbcGenerator.generateFile(sqlQuery, collectionName, params);
     }
