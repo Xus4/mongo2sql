@@ -59,10 +59,26 @@ public class ProjectStage implements PipelineStage {
                 // 处理布尔值（true表示包含，false表示排除）
                 projections.put(fieldName, fieldValue.asBoolean() ? 1 : 0);
             } else if (fieldValue.isTextual()) {
-                // 处理字段重命名，例如："xxx": "approvalDate"
-                Map<String, Object> renameExpression = new HashMap<>();
-                renameExpression.put("$field", fieldValue.asText());
-                projections.put(fieldName, renameExpression);
+                // 处理字段重命名或字段引用，例如："xxx": "approvalDate" 或 "xxx": "$fieldName"
+                String value = fieldValue.asText();
+                if (value.startsWith("$")) {
+                    // 如果是字段引用（以$开头），则去除$前缀
+                    String originalField = value.substring(1);
+                    // 只有当目标字段名与原字段名不同时，才添加重命名表达式
+                    if (!fieldName.equals(originalField)) {
+                        Map<String, Object> renameExpression = new HashMap<>();
+                        renameExpression.put("$field", originalField);
+                        projections.put(fieldName, renameExpression);
+                    } else {
+                        // 字段名相同时，直接使用原字段名
+                        projections.put(fieldName, 1);
+                    }
+                } else {
+                    // 处理普通字符串值
+                    Map<String, Object> renameExpression = new HashMap<>();
+                    renameExpression.put("$field", value);
+                    projections.put(fieldName, renameExpression);
+                }
             }
         }
     }

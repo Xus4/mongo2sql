@@ -31,11 +31,22 @@ public class Mongo2SqlConverter {
     }
     
     /**
+     * 预处理MongoDB查询字符串
+     * 将$content.formData.xx格式的变量简化为$xx格式
+     * @param mongoQuery MongoDB查询字符串
+     * @return 预处理后的查询字符串
+     */
+    private String preprocessMongoQuery(String mongoQuery) {
+        return mongoQuery.replaceAll("\\$content\\.formData\\.(\\w+)", "\\$$1");
+    }
+
+    /**
      * 将MongoDB聚合查询转换为SQL查询
      * @param mongoQuery MongoDB聚合管道查询字符串
      * @return 转换后的SQL查询字符串
      */
     public String convertToSql(String mongoQuery, String collectionName) {
+        mongoQuery = preprocessMongoQuery(mongoQuery);
         AggregationPipeline pipeline = parser.parse(mongoQuery);
         return sqlConverter.convert(pipeline, collectionName);
     }

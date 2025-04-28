@@ -12,6 +12,7 @@ import com.mongo2sql.parser.LookupStage;
 import com.mongo2sql.parser.MatchStage;
 import com.mongo2sql.parser.PipelineStage;
 import com.mongo2sql.parser.ProjectStage;
+import com.mongo2sql.parser.SetStage;
 import com.mongo2sql.parser.SortStage;
 import com.mongo2sql.parser.UnwindStage;
 
@@ -38,6 +39,7 @@ public class DefaultSqlConverter implements SqlConverter {
         StringBuilder joinClause = new StringBuilder();
         StringBuilder selectClause = new StringBuilder("SELECT *");
         StringBuilder orderByClause = new StringBuilder();
+        boolean hasSetStage = false;
         
         for (PipelineStage stage : pipeline.getStages()) {
             if (stage instanceof SortStage) {
@@ -49,25 +51,38 @@ public class DefaultSqlConverter implements SqlConverter {
                 handleLookupStage((LookupStage) stage, joinClause);
             } else if (stage instanceof ProjectStage) {
                 handleProjectStage((ProjectStage) stage, selectClause);
+            } else if (stage instanceof SetStage) {
+                handleSetStage((SetStage) stage, selectClause);
+                hasSetStage = true;
             } else if (stage instanceof UnwindStage) {
                 handleUnwindStage((UnwindStage) stage, joinClause);
             }
         }
         
         // Build the SQL query
-        sqlParts.add(selectClause.toString());
-        sqlParts.add("FROM " + collectionName); // 使用传入的collectionName作为表名
-        
-        if (joinClause.length() > 0) {
-            sqlParts.add(joinClause.toString());
-        }
-        
-        if (whereClause.length() > 0) {
-            sqlParts.add("WHERE " + whereClause.toString());
-        }
-        
-        if (orderByClause.length() > 0) {
-            sqlParts.add("ORDER BY " + orderByClause.toString());
+        if (hasSetStage) {
+            sqlParts.add(selectClause.toString());
+            if (whereClause.length() > 0) {
+                sqlParts.add("WHERE " + whereClause.toString());
+            }
+            if (orderByClause.length() > 0) {
+                sqlParts.add("ORDER BY " + orderByClause.toString());
+            }
+        } else {
+            sqlParts.add(selectClause.toString());
+            sqlParts.add("FROM " + collectionName);
+            
+            if (joinClause.length() > 0) {
+                sqlParts.add(joinClause.toString());
+            }
+            
+            if (whereClause.length() > 0) {
+                sqlParts.add("WHERE " + whereClause.toString());
+            }
+            
+            if (orderByClause.length() > 0) {
+                sqlParts.add("ORDER BY " + orderByClause.toString());
+            }
         }
         
         return String.join(" ", sqlParts);
@@ -220,6 +235,66 @@ public class DefaultSqlConverter implements SqlConverter {
             this.collectionName);
         
         joinClause.append(joinStatement);
+    }
+    
+    private void handleSetStage(SetStage stage, StringBuilder selectClause) {
+        Map<String, Object> setFields = stage.getSetFields();
+        if (setFields.isEmpty()) return;
+        
+        StringJoiner setJoiner = new StringJoiner(", ");
+        
+        setFields.forEach((field, value) -> {
+            String columnName = field.substring(field.lastIndexOf('.') + 1);
+            if (value instanceof Map) {
+                Map<String, Object> expression = (Map<String, Object>) value;
+                expression.forEach((operator, params) -> {
+                    if (operator.equals("$substr") && params instanceof Object[]) {
+                        Object[] substrParams = (Object[]) params;
+                        if (substrParams.length >= 3) {
+                            String sourceField = extractFieldName(substrParams[0]);
+                            int start = ((Number) substrParams[1]).intValue() + 1; // Convert to 1-based index
+                            int length = ((Number) substrParams[2]).intValue();
+                            setJoiner.add(columnName + " = SUBSTRING(" + sourceField + ", " + start + ", " + length + ")");
+                        }
+                    } else if (params instanceof Object[]) {
+                        StringJoiner paramJoiner = new StringJoiner(", ");
+                        for (Object param : (Object[]) params) {
+                            if (param instanceof Map && ((Map<?, ?>) param).containsKey("$field")) {
+                                paramJoiner.add(extractFieldName(param));
+                            } else {
+                                paramJoiner.add(param.toString());
+                            }
+                        }
+                        setJoiner.add(columnName + " " + operator + "(" + paramJoiner.toString() + ")");
+                    } else {
+                        setJoiner.add(columnName + " " + operator + " " + params.toString());
+                    }
+                });
+            } else if (value instanceof String) {
+                setJoiner.add(columnName + " = '" + value.toString() + "'");
+            } else {
+                setJoiner.add(columnName + " = " + value.toString());
+            }
+        });
+        
+        selectClause.setLength(0);
+        selectClause.append("UPDATE ").append(this.collectionName)
+                   .append(" SET ").append(setJoiner.toString());
+    }
+
+    private String extractFieldName(Object fieldObj) {
+        if (fieldObj instanceof Map) {
+            Map<?, ?> fieldMap = (Map<?, ?>) fieldObj;
+            if (fieldMap.containsKey("$field")) {
+                return fieldMap.get("$field").toString();
+            }
+        } else if (fieldObj instanceof String) {
+            String fieldStr = fieldObj.toString();
+            if (fieldStr.startsWith("$")) {
+                return fieldStr.substring(1);
+            }
+        }
+        return fieldObj.toString();
     }
     
     private void handleSortStage(SortStage stage, StringBuilder orderByClause) {
