@@ -1,24 +1,20 @@
 package com.mongo2sql;
 
 import org.junit.jupiter.api.Test;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class Mongo2SqlConverterTest {
 
 	@Test
-	public void testGenerateJdbcCodeWithSpecialParam() {
+	public void testGenerateJdbcCodeWithSpecialParam() throws JsonMappingException, JsonProcessingException {
 		Mongo2SqlConverter converter = new Mongo2SqlConverter();
-		String mongoQuery = "{\r\n"
-				+ "  \"command\": [\r\n"
-				+ "    {\r\n"
-				+ "      \"$match\": {\r\n"
-				+ "        \"relatedPartyType\": {\r\n"
-				+ "          \"$gte\": \"123\"\r\n"
-				+ "        }\r\n"
-				+ "      }\r\n"
-				+ "    }\r\n"
-				+ "  ]\r\n"
-				+ "}";
+		String mongoQuery = "{\"command\":[\r\n"
+				+ "{\"$match\":{\"$expr\":{\"$eq\":[\"$createdTime\",\"22030101\"]}}},\r\n"
+				+ "{\"$match\":{\"$expr\":{\"$eq\":[\"$subjectCode\",\"22030101\"]}}}]}";
 		
 		String collectionName = "testCollection";
 

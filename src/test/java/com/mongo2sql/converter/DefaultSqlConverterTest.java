@@ -1,5 +1,7 @@
 package com.mongo2sql.converter;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.mongo2sql.parser.AggregationPipeline;
 import com.mongo2sql.parser.MongoAggregationParser;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +19,7 @@ public class DefaultSqlConverterTest {
     }
 
     @Test
-    void testMatchStageWithNestedField() {
+    void testMatchStageWithNestedField() throws JsonMappingException, JsonProcessingException {
         // 准备测试数据
         String mongoQuery = "{"
             + "\"command\": [{"

@@ -1,12 +1,16 @@
 package com.mongo2sql.converter;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongo2sql.parser.AggregationPipeline;
 import com.mongo2sql.parser.LookupStage;
 import com.mongo2sql.parser.MatchStage;
@@ -30,9 +34,11 @@ public class DefaultSqlConverter implements SqlConverter {
      * 
      * @param pipeline MongoDB聚合管道对象，包含了一系列聚合操作阶段
      * @return 转换后的SQL查询字符串
+     * @throws JsonProcessingException 
+     * @throws JsonMappingException 
      */
     @Override
-    public String convert(AggregationPipeline pipeline, String collectionName) {
+    public String convert(AggregationPipeline pipeline, String collectionName) throws JsonMappingException, JsonProcessingException {
         this.collectionName = collectionName; // 保存集合名称
         List<String> sqlParts = new ArrayList<>();
         StringBuilder whereClause = new StringBuilder();
@@ -41,12 +47,18 @@ public class DefaultSqlConverter implements SqlConverter {
         StringBuilder orderByClause = new StringBuilder();
         boolean hasSetStage = false;
         
+        // 收集所有的 match 条件
+        List<String> matchConditions = new ArrayList<>();
+        
         for (PipelineStage stage : pipeline.getStages()) {
             if (stage instanceof SortStage) {
                 handleSortStage((SortStage) stage, orderByClause);
-            }
-            if (stage instanceof MatchStage) {
-                handleMatchStage((MatchStage) stage, whereClause);
+            } else if (stage instanceof MatchStage) {
+                StringBuilder matchWhere = new StringBuilder();
+                handleMatchStage((MatchStage) stage, matchWhere);
+                if (matchWhere.length() > 0) {
+                    matchConditions.add(matchWhere.toString());
+                }
             } else if (stage instanceof LookupStage) {
                 handleLookupStage((LookupStage) stage, joinClause);
             } else if (stage instanceof ProjectStage) {
@@ -57,6 +69,11 @@ public class DefaultSqlConverter implements SqlConverter {
             } else if (stage instanceof UnwindStage) {
                 handleUnwindStage((UnwindStage) stage, joinClause);
             }
+        }
+        
+        // 合并所有的 match 条件
+        if (!matchConditions.isEmpty()) {
+            whereClause.append(String.join(" AND ", matchConditions));
         }
         
         // Build the SQL query
@@ -93,17 +110,89 @@ public class DefaultSqlConverter implements SqlConverter {
      * 
      * @param stage $match阶段对象，包含查询条件
      * @param whereClause SQL WHERE子句的StringBuilder对象
+     * @throws JsonProcessingException 
+     * @throws JsonMappingException 
      */
-    private void handleMatchStage(MatchStage stage, StringBuilder whereClause) {
+    private void handleMatchStage(MatchStage stage, StringBuilder whereClause) throws JsonMappingException, JsonProcessingException {
         Map<String, Object> conditions = stage.getConditions();
         if (conditions.isEmpty()) {
             return;
         }
 
         StringJoiner conditionJoiner = new StringJoiner(" AND ");
+        ObjectMapper mapper = new ObjectMapper();
+        
         for (Map.Entry<String, Object> condition : conditions.entrySet()) {
-            String field = condition.getKey();
+            String field = condition.getKey();	
             Object value = condition.getValue();
+            
+            // 处理 $or 操作符
+            if ("$or".equals(field)) {
+                StringJoiner orJoiner = new StringJoiner(" OR ");
+                
+                if (value instanceof List) {
+                    List<Object> orConditions = (List<Object>) value;
+                    for (Object orCondition : orConditions) {
+                        Map<String, Object> conditionMap = null;
+                        if (orCondition instanceof Map) {
+                            conditionMap = (Map<String, Object>) orCondition;
+                        } else if (orCondition instanceof String) {
+                            try {
+                                conditionMap = mapper.readValue((String) orCondition, Map.class);
+                            } catch (Exception e) {
+                                // 如果解析失败，跳过这个条件
+                                continue;
+                            }
+                        }
+                        
+                        if (conditionMap != null) {
+                            StringJoiner innerJoiner = new StringJoiner(" AND ");
+                            for (Map.Entry<String, Object> entry : conditionMap.entrySet()) {
+                                String columnName = entry.getKey();
+                                Object columnValue = entry.getValue();
+                                if (columnValue instanceof String) {
+                                    innerJoiner.add(columnName + " = '" + columnValue.toString() + "'");
+                                } else {
+                                    innerJoiner.add(columnName + " = " + columnValue.toString());
+                                }
+                            }
+                            orJoiner.add("(" + innerJoiner.toString() + ")");
+                        }
+                    }
+                } else if (value instanceof Object[]) {
+                    Object[] orConditions = (Object[]) value;
+                    for (Object orCondition : orConditions) {
+                        Map<String, Object> conditionMap = null;
+                        if (orCondition instanceof Map) {
+                            conditionMap = (Map<String, Object>) orCondition;
+                        } else if (orCondition instanceof String) {
+                            try {
+                                conditionMap = mapper.readValue((String) orCondition, Map.class);
+                            } catch (Exception e) {
+                                // 如果解析失败，跳过这个条件
+                                continue;
+                            }
+                        }
+                        
+                        if (conditionMap != null) {
+                            StringJoiner innerJoiner = new StringJoiner(" AND ");
+                            for (Map.Entry<String, Object> entry : conditionMap.entrySet()) {
+                                String columnName = entry.getKey();
+                                Object columnValue = entry.getValue();
+                                if (columnValue instanceof String) {
+                                    innerJoiner.add(columnName + " = '" + columnValue.toString() + "'");
+                                } else {
+                                    innerJoiner.add(columnName + " = " + columnValue.toString());
+                                }
+                            }
+                            orJoiner.add("(" + innerJoiner.toString() + ")");
+                        }
+                    }
+                }
+                
+                conditionJoiner.add(orJoiner.toString());
+                continue;
+            }
             
             // 处理表达式操作符
             if ("$expr".equals(field) && value instanceof Map) {

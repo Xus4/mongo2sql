@@ -2,6 +2,8 @@ package com.mongo2sql;
 
 import java.util.List;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.mongo2sql.converter.DefaultSqlConverter;
 import com.mongo2sql.converter.SqlConverter;
 import com.mongo2sql.generator.FreemarkerJdbcGenerator;
@@ -44,8 +46,10 @@ public class Mongo2SqlConverter {
      * 将MongoDB聚合查询转换为SQL查询
      * @param mongoQuery MongoDB聚合管道查询字符串
      * @return 转换后的SQL查询字符串
+     * @throws JsonProcessingException 
+     * @throws JsonMappingException 
      */
-    public String convertToSql(String mongoQuery, String collectionName) {
+    public String convertToSql(String mongoQuery, String collectionName) throws JsonMappingException, JsonProcessingException {
         mongoQuery = preprocessMongoQuery(mongoQuery);
         AggregationPipeline pipeline = parser.parse(mongoQuery);
         return sqlConverter.convert(pipeline, collectionName);
@@ -68,8 +72,10 @@ public class Mongo2SqlConverter {
      * 生成用于执行转换后SQL查询的JDBC代码
      * @param mongoQuery MongoDB聚合管道查询字符串
      * @return 生成的JDBC代码字符串
+     * @throws JsonProcessingException 
+     * @throws JsonMappingException 
      */
-    public String generateJdbcCode(String mongoQuery, String collectionName) {
+    public String generateJdbcCode(String mongoQuery, String collectionName) throws JsonMappingException, JsonProcessingException {
         String sqlQuery = convertToSql(mongoQuery, collectionName);
         System.out.println(sqlQuery);
         List<QueryParameter> params = parseParams(mongoQuery);

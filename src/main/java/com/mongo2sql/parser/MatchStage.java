@@ -36,8 +36,12 @@ public class MatchStage implements PipelineStage {
             JsonNode value = field.getValue();
             
             if (value.isObject()) {
+                // 处理 $or 操作符
+                if ("$or".equals(fieldName)) {
+                    conditions.put("$or", parseOrConditions(value));
+                }
                 // 处理 $expr 操作符
-                if ("$expr".equals(fieldName)) {
+                else if ("$expr".equals(fieldName)) {
                     conditions.put("$expr", parseExpression(value));
                 } else {
                     // 处理其他操作符，如 $in, $eq 等
@@ -147,6 +151,43 @@ public class MatchStage implements PipelineStage {
             values[i] = parseValue(arrayNode.get(i));
         }
         return values;
+    }
+
+    /**
+     * 解析 $or 条件
+     * @param orNode $or 操作符的 JSON 节点
+     * @return 解析后的 $or 条件列表
+     */
+    private List<Map<String, Object>> parseOrConditions(JsonNode orNode) {
+        List<Map<String, Object>> orConditions = new ArrayList<>();
+        
+        if (orNode.isArray()) {
+            for (int i = 0; i < orNode.size(); i++) {
+                JsonNode conditionNode = orNode.get(i);
+                if (conditionNode.isObject()) {
+                    Map<String, Object> condition = new HashMap<>();
+                    Iterator<Map.Entry<String, JsonNode>> fields = conditionNode.fields();
+                    
+                    while (fields.hasNext()) {
+                        Map.Entry<String, JsonNode> field = fields.next();
+                        String fieldName = field.getKey();
+                        JsonNode fieldValue = field.getValue();
+                        
+                        if (fieldValue.isTextual()) {
+                            condition.put(fieldName, fieldValue.asText());
+                        } else if (fieldValue.isNumber()) {
+                            condition.put(fieldName, fieldValue.numberValue());
+                        } else if (fieldValue.isBoolean()) {
+                            condition.put(fieldName, fieldValue.asBoolean());
+                        }
+                    }
+                    
+                    orConditions.add(condition);
+                }
+            }
+        }
+        
+        return orConditions;
     }
 
     @Override
