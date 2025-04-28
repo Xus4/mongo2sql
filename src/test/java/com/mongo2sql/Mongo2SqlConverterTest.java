@@ -1,24 +1,9 @@
 package com.mongo2sql;
 
-import static org.junit.Assert.assertTrue;
-
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class Mongo2SqlConverterTest {
 
-//    @Test
-//    public void testGenerateJdbcCode() {
-//        Mongo2SqlConverter converter = new Mongo2SqlConverter();
-//        String mongoQuery = "{\"command\": [{\"$match\": {\"field\": \"$field\"}}]}";
-//        String collectionName = "testCollection";
-//
-//        String jdbcCode = converter.generateJdbcCode(mongoQuery, collectionName);
-//        System.out.println(jdbcCode);
-//        // 检查生成的JDBC代码是否包含预期的SQL查询和参数绑定逻辑
-//        assertTrue(jdbcCode.contains("SELECT"));
-//        assertTrue(jdbcCode.contains("FROM testCollection"));
-//    }
-//    
 	@Test
 	public void testGenerateJdbcCodeWithSpecialParam() {
 		Mongo2SqlConverter converter = new Mongo2SqlConverter();
@@ -41,6 +26,17 @@ public class Mongo2SqlConverterTest {
 		String collectionName = "testCollection";
 
 		String jdbcCode = converter.generateJdbcCode(mongoQuery, collectionName);
-		System.out.println(jdbcCode);
+		System.out.println("生成的JDBC代码:\n" + jdbcCode);
+		
+		// 验证生成的JDBC代码是否包含必要的SQL查询结构
+		org.junit.Assert.assertTrue("JDBC代码应该包含SELECT语句", jdbcCode.contains("SELECT"));
+		org.junit.Assert.assertTrue("JDBC代码应该包含指定的字段", 
+			jdbcCode.toLowerCase().contains("content") && 
+			jdbcCode.toLowerCase().contains("uniqueid") && 
+			jdbcCode.toLowerCase().contains("createdtime"));
+		org.junit.Assert.assertTrue("JDBC代码应该包含FROM子句和表名", jdbcCode.contains("FROM " + collectionName));
+		org.junit.Assert.assertTrue("JDBC代码应该包含ORDER BY子句", 
+			jdbcCode.toLowerCase().contains("order by") && 
+			jdbcCode.toLowerCase().contains("createdtime"));
 	}
 }
