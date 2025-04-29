@@ -79,6 +79,8 @@ public class DefaultSqlConverter implements SqlConverter {
                 }
             } else if (stage instanceof LookupStage) {
                 handleLookupStage((LookupStage) stage, joinClause);
+                // 添加主表和关联表的所有字段
+                selectedFields.add(this.collectionName + ".*");
                 selectedFields.add(((LookupStage) stage).getAs() + ".*");
             } else if (stage instanceof ProjectStage) {
                 handleProjectStage((ProjectStage) stage, selectClause);
@@ -89,7 +91,7 @@ public class DefaultSqlConverter implements SqlConverter {
             } else if (stage instanceof UnwindStage) {
                 handleUnwindStage((UnwindStage) stage, joinClause);
             } else if (stage instanceof GroupStage) {
-                handleGroupStage((GroupStage) stage, groupByClause, selectClause);
+                handleGroupStage((GroupStage) stage, groupByClause, selectClause, whereClause, joinClause, orderByClause);
                 hasGroupStage = true;
             }
         }
@@ -99,16 +101,23 @@ public class DefaultSqlConverter implements SqlConverter {
         }
         
         if (hasSetStage) {
-            sqlParts.add(selectClause.toString());
             if (whereClause.length() > 0) {
                 sqlParts.add("WHERE " + whereClause.toString());
             }
             if (orderByClause.length() > 0) {
                 sqlParts.add("ORDER BY " + orderByClause.toString());
             }
+        } else if (hasGroupStage) {
+            // 如果使用了GROUP阶段，直接使用handleGroupStage生成的SQL
+            sqlParts.add(selectClause.toString());
         } else {
-            if (!hasProjectStage && !hasGroupStage) {
-                selectClause.append("*");
+            if (!hasProjectStage) {
+                // 如果没有指定project阶段，使用所有字段
+                if (selectedFields.isEmpty()) {
+                    selectClause.append("*");
+                } else {
+                    selectClause.append(String.join(", ", selectedFields));
+                }
             }
             
             sqlParts.add(selectClause.toString());
@@ -120,10 +129,6 @@ public class DefaultSqlConverter implements SqlConverter {
             
             if (whereClause.length() > 0) {
                 sqlParts.add("WHERE " + whereClause.toString());
-            }
-            
-            if (hasGroupStage && groupByClause.length() > 0) {
-                sqlParts.add("GROUP BY " + groupByClause.toString());
             }
             
             if (orderByClause.length() > 0) {
@@ -249,6 +254,10 @@ public class DefaultSqlConverter implements SqlConverter {
                     parameters.add(compareValue);
                     conditionJoiner.add(columnName + " " + sqlOperator + " ?");
                 }
+            } else if (value instanceof String && ((String) value).startsWith("$:")) {
+                // 处理参数引用
+                parameters.add(value);
+                conditionJoiner.add(columnName + " = ?");
             } else {
                 parameters.add(value);
                 conditionJoiner.add(columnName + " = ?");
@@ -329,8 +338,8 @@ public class DefaultSqlConverter implements SqlConverter {
         String[] localFieldParts = localField.split("\\.");
         String localFieldColumn = localFieldParts[localFieldParts.length - 1];
 
-        // 构建JOIN语句
-        String joinStatement = String.format(" LEFT JOIN %s %s ON %s.%s = %s.%s",
+        // 构建JOIN语句，使用INNER JOIN而不是LEFT JOIN
+        String joinStatement = String.format(" JOIN %s %s ON %s.%s = %s.%s",
             fromTable,
             alias,
             this.collectionName,
@@ -500,11 +509,19 @@ public class DefaultSqlConverter implements SqlConverter {
         }
     }
 
-    private void handleGroupStage(GroupStage stage, StringBuilder groupByClause, StringBuilder selectClause) {
+    private void handleGroupStage(GroupStage stage, StringBuilder groupByClause, StringBuilder selectClause, 
+                                StringBuilder whereClause, StringBuilder joinClause, StringBuilder orderByClause) {
         // 处理分组字段
         String idField = stage.getIdField();
         if (idField != null) {
-            groupByClause.append(idField);
+            // 移除字段路径中的$符号和路径前缀
+            if (idField.startsWith("$")) {
+                idField = idField.substring(1);
+            }
+            // 扁平化字段路径，只保留最后一部分
+            if (idField.contains(".")) {
+                idField = idField.substring(idField.lastIndexOf(".") + 1);
+            }
         }
 
         // 处理聚合操作
@@ -512,33 +529,37 @@ public class DefaultSqlConverter implements SqlConverter {
         if (!operations.isEmpty()) {
             // 清空原有的SELECT子句
             selectClause.setLength(0);
-            selectClause.append("SELECT ");
             
-            // 添加分组字段
-            if (idField != null) {
-                selectClause.append(idField).append(", ");
+            // 构建子查询
+            StringBuilder subQuery = new StringBuilder();
+            subQuery.append("SELECT *, ROW_NUMBER() OVER (PARTITION BY ").append(idField);
+            
+            // 添加排序字段（如果有）
+            if (orderByClause.length() > 0) {
+                subQuery.append(" ORDER BY ").append(orderByClause);
             }
             
-            // 添加聚合操作
-            StringJoiner aggregations = new StringJoiner(", ");
-            operations.forEach((fieldName, operation) -> {
-                String sqlOperator = convertGroupOperator(operation.getOperator());
-                String field = operation.getField();
-                
-                // 特殊处理COUNT操作
-                if ("$count".equals(operation.getOperator())) {
-                    aggregations.add("COUNT(*) AS " + fieldName);
-                } else if (field != null) {
-                    aggregations.add(sqlOperator + "(" + field + ") AS " + fieldName);
-                } else {
-                    // 处理没有字段的聚合操作（如$sum: 1）
-                    if ("$sum".equals(operation.getOperator())) {
-                        aggregations.add("COUNT(*) AS " + fieldName);
-                    }
-                }
-            });
+            subQuery.append(") AS rn FROM ").append(collectionName);
             
-            selectClause.append(aggregations.toString());
+            // 处理WHERE条件
+            if (whereClause.length() > 0) {
+                // 获取match阶段的条件
+                String whereStr = whereClause.toString();
+                // 扁平化字段路径
+                if (whereStr.contains(".")) {
+                    int lastDotIndex = whereStr.lastIndexOf(".");
+                    whereStr = whereStr.substring(lastDotIndex + 1);
+                }
+                subQuery.append(" WHERE ").append(whereStr);
+            }
+            
+            // 添加JOIN子句（如果有）
+            if (joinClause.length() > 0) {
+                subQuery.append(" ").append(joinClause);
+            }
+            
+            // 构建最终查询
+            selectClause.append("SELECT * FROM (").append(subQuery).append(") WHERE rn = 1");
         }
     }
 

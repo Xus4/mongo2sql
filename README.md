@@ -86,7 +86,7 @@ String jdbcCode = converter.generateJdbcCode(mongoQuery, "orders");
 
 1. 克隆仓库：
 ```bash
-git clone https://github.com/yourusername/mongo2sql.git
+git clone https://github.com/Xus4/mongo2sql.git
 ```
 
 2. 使用Maven构建：
