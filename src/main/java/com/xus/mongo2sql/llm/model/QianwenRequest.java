@@ -91,4 +91,8 @@ public class QianwenRequest {
             this.resultFormat = resultFormat;
         }
     }
+
+    public static String cleanSql(String sql) {
+        return sql.replaceAll("^```sql\\s+|\\s+```$", "");
+    }
 }
