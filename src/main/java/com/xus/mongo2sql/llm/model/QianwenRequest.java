@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class QianwenRequest {
     public enum QianwenModel {
-        QWEN_TURBO("qwen-turbo-latest"),
+        QWEN_TURBO("qwen-turbo"),
         QWEN_PLUS("qwen-plus-latest"),
         QWEN3_235B("qwen3-235b-a22b");
 
