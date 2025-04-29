@@ -56,6 +56,6 @@ class QianwenClientTest {
     @Test
     void testExcelConversionAndWrite() throws Exception {
         ExcelMongoParser parser = new ExcelMongoParser();
-        parser.parseAndWriteExcel("G:\\test88_188.xlsx", "G:\\output.xlsx");
+        parser.parseAndWriteExcel("G:\\xy_prd.schema0429.xlsx", "G:\\output.xlsx");
     }
 }

@@ -8,7 +8,8 @@ public class QianwenRequest {
     public enum QianwenModel {
         QWEN_TURBO("qwen-turbo"),
         QWEN_PLUS("qwen-plus-latest"),
-        QWEN3_235B("qwen3-235b-a22b");
+        QWEN3_235B("qwen3-235b-a22b"),
+    	R1("deepseek-r1");
 
         private final String value;
 
