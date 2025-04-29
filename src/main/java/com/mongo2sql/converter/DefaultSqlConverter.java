@@ -1,7 +1,6 @@
 package com.mongo2sql.converter;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongo2sql.parser.AggregationPipeline;
+import com.mongo2sql.parser.GroupStage;
 import com.mongo2sql.parser.LookupStage;
 import com.mongo2sql.parser.MatchStage;
 import com.mongo2sql.parser.PipelineStage;
@@ -21,7 +21,6 @@ import com.mongo2sql.parser.ProjectStage;
 import com.mongo2sql.parser.SetStage;
 import com.mongo2sql.parser.SortStage;
 import com.mongo2sql.parser.UnwindStage;
-import com.mongo2sql.parser.GroupStage;
 
 /**
  * DefaultSqlConverter是MongoDB聚合管道到SQL查询的默认转换器实现。
