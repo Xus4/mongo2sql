@@ -1,9 +1,10 @@
 package com.mongo2sql.parser;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * SetStage类表示MongoDB聚合管道中的$set阶段。

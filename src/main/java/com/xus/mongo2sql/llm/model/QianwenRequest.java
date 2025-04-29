@@ -1,10 +1,27 @@
 package com.xus.mongo2sql.llm.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class QianwenRequest {
-    private String model = "qwen3-235b-a22b";
+    public enum QianwenModel {
+        QWEN_TURBO("qwen-turbo-latest"),
+        QWEN_PLUS("qwen-plus-latest"),
+        QWEN3_235B("qwen3-235b-a22b");
+
+        private final String value;
+
+        QianwenModel(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+    }
+
+    private String model = QianwenModel.QWEN_TURBO.getValue();
     private List<Message> messages;
     private Parameters parameters;
     private boolean stream = true;

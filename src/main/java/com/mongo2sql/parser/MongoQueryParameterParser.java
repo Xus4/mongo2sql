@@ -1,12 +1,12 @@
 package com.mongo2sql.parser;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.mongo2sql.generator.QueryParameter;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.mongo2sql.generator.QueryParameter;
 
 /**
  * MongoQueryParameterExtractor负责解析MongoDB查询字符串中的参数。

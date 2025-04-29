@@ -1,8 +1,9 @@
 package com.mongo2sql.parser;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * 表示MongoDB $group阶段的实现类，用于执行分组操作。

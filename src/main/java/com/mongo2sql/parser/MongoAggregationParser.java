@@ -1,9 +1,10 @@
 package com.mongo2sql.parser;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * MongoDB聚合查询解析器，负责将MongoDB聚合查询字符串解析为结构化的管道对象。

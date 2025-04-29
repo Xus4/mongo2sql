@@ -1,8 +1,9 @@
 package com.mongo2sql.parser;
 
-import java.util.Map;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
+
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**

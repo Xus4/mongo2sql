@@ -26,7 +26,19 @@ public class QianwenClient {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String chat(String prompt) throws IOException {
+        return chat(prompt, QianwenRequest.QianwenModel.QWEN_TURBO);
+    }
+
+    private QianwenRequest.QianwenModel currentModel;
+
+    public QianwenRequest.QianwenModel getCurrentModel() {
+        return currentModel;
+    }
+
+    public String chat(String prompt, QianwenRequest.QianwenModel model) throws IOException {
+        this.currentModel = model;
         QianwenRequest request = new QianwenRequest();
+        request.setModel(model.getValue());
         QianwenRequest.Message message = new QianwenRequest.Message();
         message.setRole("user");
         message.setContent(prompt);

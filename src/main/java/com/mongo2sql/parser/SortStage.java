@@ -1,8 +1,9 @@
 package com.mongo2sql.parser;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class SortStage implements PipelineStage {
     private final LinkedHashMap<String, Integer> sortFields;

@@ -1,8 +1,5 @@
 package com.mongo2sql.converter;
 
-import java.util.List;
-import java.util.Map;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.mongo2sql.parser.AggregationPipeline;

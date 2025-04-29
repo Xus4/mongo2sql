@@ -1,11 +1,12 @@
 package com.mongo2sql.parser;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import java.util.Map;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ArrayList;
+import java.util.Map;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * 表示MongoDB $match阶段的实现类，用于过滤文档。

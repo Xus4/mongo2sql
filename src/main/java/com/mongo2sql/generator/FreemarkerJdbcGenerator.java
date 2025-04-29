@@ -8,11 +8,11 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
-import java.util.logging.Logger;
-import java.util.logging.Level;
 
 public class FreemarkerJdbcGenerator implements JdbcCodeGenerator {
     private static final Logger logger = Logger.getLogger(FreemarkerJdbcGenerator.class.getName());
