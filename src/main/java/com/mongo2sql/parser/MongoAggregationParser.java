@@ -77,6 +77,8 @@ public class MongoAggregationParser {
                 return new SortStage(operatorValue);
             case "$set":
                 return new SetStage(operatorValue);
+            case "$group":
+                return new GroupStage(operatorValue);
             default:
                 throw new UnsupportedOperationException("Unsupported aggregation operator: " + operator);
         }

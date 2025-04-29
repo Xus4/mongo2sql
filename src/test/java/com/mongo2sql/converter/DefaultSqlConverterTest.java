@@ -87,4 +87,59 @@ public class DefaultSqlConverterTest {
         String expectedSql = "SELECT id, name, userInfo.name FROM orders LEFT JOIN users userInfo ON orders.userId = userInfo.id WHERE status = 'active'";
         assertEquals(expectedSql, sql);
     }
+
+    @Test
+    public void testGroupStage() throws Exception {
+        // 准备测试数据
+        String mongoQuery = "["
+            + "{ \"$group\": {"
+            + "  \"_id\": \"$category\","
+            + "  \"total\": { \"$sum\": \"$amount\" },"
+            + "  \"average\": { \"$avg\": \"$amount\" },"
+            + "  \"max\": { \"$max\": \"$amount\" },"
+            + "  \"min\": { \"$min\": \"$amount\" },"
+            + "  \"count\": { \"$count\": {} }"
+            + "}}"
+            + "]";
+        
+        // 解析MongoDB查询
+        MongoAggregationParser parser = new MongoAggregationParser();
+        AggregationPipeline pipeline = parser.parse(mongoQuery);
+        
+        // 创建转换器
+        DefaultSqlConverter converter = new DefaultSqlConverter();
+        
+        // 执行转换
+        String sql = converter.convert(pipeline, "transactions");
+        
+        // 验证结果
+        String expectedSql = "SELECT category, SUM(amount) AS total, AVG(amount) AS average, MAX(amount) AS max, MIN(amount) AS min, COUNT(*) AS count FROM transactions GROUP BY category";
+        assertEquals(expectedSql, sql);
+    }
+    
+    @Test
+    public void testGroupWithMatch() throws Exception {
+        // 准备测试数据
+        String mongoQuery = "["
+            + "{ \"$match\": { \"status\": \"completed\" } },"
+            + "{ \"$group\": {"
+            + "  \"_id\": \"$category\","
+            + "  \"total\": { \"$sum\": \"$amount\" }"
+            + "}}"
+            + "]";
+        
+        // 解析MongoDB查询
+        MongoAggregationParser parser = new MongoAggregationParser();
+        AggregationPipeline pipeline = parser.parse(mongoQuery);
+        
+        // 创建转换器
+        DefaultSqlConverter converter = new DefaultSqlConverter();
+        
+        // 执行转换
+        String sql = converter.convert(pipeline, "transactions");
+        
+        // 验证结果
+        String expectedSql = "SELECT category, SUM(amount) AS total FROM transactions WHERE status = 'completed' GROUP BY category";
+        assertEquals(expectedSql, sql);
+    }
 }

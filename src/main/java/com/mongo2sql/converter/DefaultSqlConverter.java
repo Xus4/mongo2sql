@@ -21,6 +21,7 @@ import com.mongo2sql.parser.ProjectStage;
 import com.mongo2sql.parser.SetStage;
 import com.mongo2sql.parser.SortStage;
 import com.mongo2sql.parser.UnwindStage;
+import com.mongo2sql.parser.GroupStage;
 
 /**
  * DefaultSqlConverter是MongoDB聚合管道到SQL查询的默认转换器实现。
@@ -31,6 +32,8 @@ import com.mongo2sql.parser.UnwindStage;
  */
 public class DefaultSqlConverter implements SqlConverter {
     private String collectionName; // 存储当前处理的集合名称
+    private List<Object> parameters;
+
     /**
      * 将MongoDB聚合管道转换为SQL查询字符串。
      * 
@@ -41,20 +44,29 @@ public class DefaultSqlConverter implements SqlConverter {
      */
     @Override
     public String convert(AggregationPipeline pipeline, String collectionName) throws JsonMappingException, JsonProcessingException {
+        SqlQueryResult result = convertWithParameters(pipeline, collectionName);
+        return result.getSql();
+    }
+
+    @Override
+    public SqlQueryResult convertWithParameters(AggregationPipeline pipeline, String collectionName) throws JsonMappingException, JsonProcessingException {
         this.collectionName = collectionName;
+        this.parameters = new ArrayList<>();
         List<String> sqlParts = new ArrayList<>();
         StringBuilder whereClause = new StringBuilder();
         StringBuilder joinClause = new StringBuilder();
         StringBuilder selectClause = new StringBuilder("SELECT ");
         StringBuilder orderByClause = new StringBuilder();
+        StringBuilder groupByClause = new StringBuilder();
         boolean hasSetStage = false;
+        boolean hasGroupStage = false;
+        boolean hasProjectStage = false;
         
         // 收集所有的 match 条件
         List<String> matchConditions = new ArrayList<>();
         
         // 收集所有需要选择的字段
         Set<String> selectedFields = new HashSet<>();
-        selectedFields.add(this.collectionName + ".*");
         
         for (PipelineStage stage : pipeline.getStages()) {
             if (stage instanceof SortStage) {
@@ -67,29 +79,25 @@ public class DefaultSqlConverter implements SqlConverter {
                 }
             } else if (stage instanceof LookupStage) {
                 handleLookupStage((LookupStage) stage, joinClause);
-                // 添加连接表的所有字段
                 selectedFields.add(((LookupStage) stage).getAs() + ".*");
             } else if (stage instanceof ProjectStage) {
                 handleProjectStage((ProjectStage) stage, selectClause);
+                hasProjectStage = true;
             } else if (stage instanceof SetStage) {
                 handleSetStage((SetStage) stage, selectClause);
                 hasSetStage = true;
             } else if (stage instanceof UnwindStage) {
                 handleUnwindStage((UnwindStage) stage, joinClause);
+            } else if (stage instanceof GroupStage) {
+                handleGroupStage((GroupStage) stage, groupByClause, selectClause);
+                hasGroupStage = true;
             }
         }
         
-        // 合并所有的 match 条件
         if (!matchConditions.isEmpty()) {
             whereClause.append(String.join(" AND ", matchConditions));
         }
         
-        // 构建SELECT子句
-        if (!hasSetStage) {
-            selectClause.append(String.join(", ", selectedFields));
-        }
-        
-        // Build the SQL query
         if (hasSetStage) {
             sqlParts.add(selectClause.toString());
             if (whereClause.length() > 0) {
@@ -99,6 +107,10 @@ public class DefaultSqlConverter implements SqlConverter {
                 sqlParts.add("ORDER BY " + orderByClause.toString());
             }
         } else {
+            if (!hasProjectStage && !hasGroupStage) {
+                selectClause.append("*");
+            }
+            
             sqlParts.add(selectClause.toString());
             sqlParts.add("FROM " + collectionName);
             
@@ -110,12 +122,16 @@ public class DefaultSqlConverter implements SqlConverter {
                 sqlParts.add("WHERE " + whereClause.toString());
             }
             
+            if (hasGroupStage && groupByClause.length() > 0) {
+                sqlParts.add("GROUP BY " + groupByClause.toString());
+            }
+            
             if (orderByClause.length() > 0) {
                 sqlParts.add("ORDER BY " + orderByClause.toString());
             }
         }
         
-        return String.join(" ", sqlParts);
+        return new SqlQueryResult(String.join(" ", sqlParts), parameters);
     }
     
     /**
@@ -139,7 +155,6 @@ public class DefaultSqlConverter implements SqlConverter {
             String field = condition.getKey();	
             Object value = condition.getValue();
             
-            // 处理 $or 操作符
             if ("$or".equals(field)) {
                 StringJoiner orJoiner = new StringJoiner(" OR ");
                 
@@ -153,7 +168,6 @@ public class DefaultSqlConverter implements SqlConverter {
                             try {
                                 conditionMap = mapper.readValue((String) orCondition, Map.class);
                             } catch (Exception e) {
-                                // 如果解析失败，跳过这个条件
                                 continue;
                             }
                         }
@@ -163,40 +177,8 @@ public class DefaultSqlConverter implements SqlConverter {
                             for (Map.Entry<String, Object> entry : conditionMap.entrySet()) {
                                 String columnName = entry.getKey();
                                 Object columnValue = entry.getValue();
-                                if (columnValue instanceof String) {
-                                    innerJoiner.add(columnName + " = '" + columnValue.toString() + "'");
-                                } else {
-                                    innerJoiner.add(columnName + " = " + columnValue.toString());
-                                }
-                            }
-                            orJoiner.add("(" + innerJoiner.toString() + ")");
-                        }
-                    }
-                } else if (value instanceof Object[]) {
-                    Object[] orConditions = (Object[]) value;
-                    for (Object orCondition : orConditions) {
-                        Map<String, Object> conditionMap = null;
-                        if (orCondition instanceof Map) {
-                            conditionMap = (Map<String, Object>) orCondition;
-                        } else if (orCondition instanceof String) {
-                            try {
-                                conditionMap = mapper.readValue((String) orCondition, Map.class);
-                            } catch (Exception e) {
-                                // 如果解析失败，跳过这个条件
-                                continue;
-                            }
-                        }
-                        
-                        if (conditionMap != null) {
-                            StringJoiner innerJoiner = new StringJoiner(" AND ");
-                            for (Map.Entry<String, Object> entry : conditionMap.entrySet()) {
-                                String columnName = entry.getKey();
-                                Object columnValue = entry.getValue();
-                                if (columnValue instanceof String) {
-                                    innerJoiner.add(columnName + " = '" + columnValue.toString() + "'");
-                                } else {
-                                    innerJoiner.add(columnName + " = " + columnValue.toString());
-                                }
+                                parameters.add(columnValue);
+                                innerJoiner.add(columnName + " = ?");
                             }
                             orJoiner.add("(" + innerJoiner.toString() + ")");
                         }
@@ -207,7 +189,6 @@ public class DefaultSqlConverter implements SqlConverter {
                 continue;
             }
             
-            // 处理表达式操作符
             if ("$expr".equals(field) && value instanceof Map) {
                 Map<String, Object> exprMap = (Map<String, Object>) value;
                 String operator = (String) exprMap.get("operator");
@@ -237,20 +218,15 @@ public class DefaultSqlConverter implements SqlConverter {
                             conditionJoiner.add(leftOperand + " <= " + rightOperand);
                             break;
                         default:
-                            // 对于未知的操作符，使用等于操作符
                             conditionJoiner.add(leftOperand + " = " + rightOperand);
                     }
                 }
                 continue;
             }
             
-            // 将MongoDB的点号路径转换为SQL列名（例如：content.formData.flowId -> flowId）
-            String columnName = field.substring(field.lastIndexOf('.') + 1);
-            if (columnName.isEmpty()) {
-                columnName = field;
-            }
+            // 保持完整的字段路径
+            String columnName = field;
             
-            // 处理操作符条件
             if (value instanceof Map) {
                 Map<String, Object> operatorMap = (Map<String, Object>) value;
                 String operator = (String) operatorMap.get("operator");
@@ -268,19 +244,14 @@ public class DefaultSqlConverter implements SqlConverter {
                     }
                     conditionJoiner.add(columnName + " IN (" + valueJoiner.toString() + ")");
                 } else {
-                    // 处理比较操作符
                     Object compareValue = operatorMap.get("value");
                     String sqlOperator = convertOperator(operator);
-                    String sqlValue = convertValue(compareValue);
-                    conditionJoiner.add(columnName + " " + sqlOperator + " " + sqlValue);
+                    parameters.add(compareValue);
+                    conditionJoiner.add(columnName + " " + sqlOperator + " ?");
                 }
             } else {
-                // 处理普通等值条件
-                if (value instanceof String) {
-                    conditionJoiner.add(columnName + " = '" + value.toString() + "'");
-                } else {
-                    conditionJoiner.add(columnName + " = " + value.toString());
-                }
+                parameters.add(value);
+                conditionJoiner.add(columnName + " = ?");
             }
         }
         
@@ -348,7 +319,7 @@ public class DefaultSqlConverter implements SqlConverter {
      * @param stage $lookup阶段对象，包含连接条件
      * @param joinClause SQL JOIN子句的StringBuilder对象
      */
-    private void handleLookupStage(LookupStage stage, StringBuilder joinClause) {
+    void handleLookupStage(LookupStage stage, StringBuilder joinClause) {
         String fromTable = stage.getFrom();
         String localField = stage.getLocalField();
         String foreignField = stage.getForeignField();
@@ -390,21 +361,21 @@ public class DefaultSqlConverter implements SqlConverter {
         projections.forEach((newField, value) -> {
             if (value instanceof Integer) {
                 if ((Integer) value == 1) {
-                    includes.add(stage.toSqlColumnName(newField));
+                    includes.add(newField);
                 } else {
-                    excludes.add(stage.toSqlColumnName(newField));
+                    excludes.add(newField);
                 }
             } else if (value instanceof Boolean) {
                 if ((Boolean) value) {
-                    includes.add(stage.toSqlColumnName(newField));
+                    includes.add(newField);
                 }
             } else if (value instanceof String) {
-                aliases.put(newField, stage.toSqlColumnName((String) value));
+                aliases.put(newField, (String) value);
             } else if (value instanceof Map) {
                 Map<?, ?> expr = (Map<?, ?>) value;
                 if (expr.containsKey("$field")) {
                     String original = expr.get("$field").toString();
-                    aliases.put(newField, stage.toSqlColumnName(original));
+                    aliases.put(newField, original);
                 }
             }
         });
@@ -526,6 +497,65 @@ public class DefaultSqlConverter implements SqlConverter {
 
         if (sortJoiner.length() > 0) {
             orderByClause.append(sortJoiner.toString());
+        }
+    }
+
+    private void handleGroupStage(GroupStage stage, StringBuilder groupByClause, StringBuilder selectClause) {
+        // 处理分组字段
+        String idField = stage.getIdField();
+        if (idField != null) {
+            groupByClause.append(idField);
+        }
+
+        // 处理聚合操作
+        Map<String, GroupStage.GroupOperation> operations = stage.getOperations();
+        if (!operations.isEmpty()) {
+            // 清空原有的SELECT子句
+            selectClause.setLength(0);
+            selectClause.append("SELECT ");
+            
+            // 添加分组字段
+            if (idField != null) {
+                selectClause.append(idField).append(", ");
+            }
+            
+            // 添加聚合操作
+            StringJoiner aggregations = new StringJoiner(", ");
+            operations.forEach((fieldName, operation) -> {
+                String sqlOperator = convertGroupOperator(operation.getOperator());
+                String field = operation.getField();
+                
+                // 特殊处理COUNT操作
+                if ("$count".equals(operation.getOperator())) {
+                    aggregations.add("COUNT(*) AS " + fieldName);
+                } else if (field != null) {
+                    aggregations.add(sqlOperator + "(" + field + ") AS " + fieldName);
+                } else {
+                    // 处理没有字段的聚合操作（如$sum: 1）
+                    if ("$sum".equals(operation.getOperator())) {
+                        aggregations.add("COUNT(*) AS " + fieldName);
+                    }
+                }
+            });
+            
+            selectClause.append(aggregations.toString());
+        }
+    }
+
+    private String convertGroupOperator(String mongoOperator) {
+        switch (mongoOperator) {
+            case "$sum":
+                return "SUM";
+            case "$avg":
+                return "AVG";
+            case "$min":
+                return "MIN";
+            case "$max":
+                return "MAX";
+            case "$count":
+                return "COUNT";
+            default:
+                return "SUM";
         }
     }
 }
