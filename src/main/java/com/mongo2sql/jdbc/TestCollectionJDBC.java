@@ -21,7 +21,7 @@ public class TestCollectionJDBC {
     }
 
     public static List<Map<String, Object>> executeQuery() {
-        String sql = "SELECT * FROM testCollection WHERE createdTime = '22030101' AND subjectCode = '22030101'";
+        String sql = "SELECT testCollection.*, bank.* FROM testCollection  LEFT JOIN open_bank bank ON testCollection.bankName = bank.uniqueId";
         System.out.println("执行SQL语句: " + sql);
         List<Map<String, Object>> resultList = new ArrayList<>();
         

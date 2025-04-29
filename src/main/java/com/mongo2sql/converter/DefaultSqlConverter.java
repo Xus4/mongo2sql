@@ -3,8 +3,10 @@ package com.mongo2sql.converter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -39,16 +41,20 @@ public class DefaultSqlConverter implements SqlConverter {
      */
     @Override
     public String convert(AggregationPipeline pipeline, String collectionName) throws JsonMappingException, JsonProcessingException {
-        this.collectionName = collectionName; // 保存集合名称
+        this.collectionName = collectionName;
         List<String> sqlParts = new ArrayList<>();
         StringBuilder whereClause = new StringBuilder();
         StringBuilder joinClause = new StringBuilder();
-        StringBuilder selectClause = new StringBuilder("SELECT *");
+        StringBuilder selectClause = new StringBuilder("SELECT ");
         StringBuilder orderByClause = new StringBuilder();
         boolean hasSetStage = false;
         
         // 收集所有的 match 条件
         List<String> matchConditions = new ArrayList<>();
+        
+        // 收集所有需要选择的字段
+        Set<String> selectedFields = new HashSet<>();
+        selectedFields.add(this.collectionName + ".*");
         
         for (PipelineStage stage : pipeline.getStages()) {
             if (stage instanceof SortStage) {
@@ -61,6 +67,8 @@ public class DefaultSqlConverter implements SqlConverter {
                 }
             } else if (stage instanceof LookupStage) {
                 handleLookupStage((LookupStage) stage, joinClause);
+                // 添加连接表的所有字段
+                selectedFields.add(((LookupStage) stage).getAs() + ".*");
             } else if (stage instanceof ProjectStage) {
                 handleProjectStage((ProjectStage) stage, selectClause);
             } else if (stage instanceof SetStage) {
@@ -74,6 +82,11 @@ public class DefaultSqlConverter implements SqlConverter {
         // 合并所有的 match 条件
         if (!matchConditions.isEmpty()) {
             whereClause.append(String.join(" AND ", matchConditions));
+        }
+        
+        // 构建SELECT子句
+        if (!hasSetStage) {
+            selectClause.append(String.join(", ", selectedFields));
         }
         
         // Build the SQL query
@@ -336,8 +349,25 @@ public class DefaultSqlConverter implements SqlConverter {
      * @param joinClause SQL JOIN子句的StringBuilder对象
      */
     private void handleLookupStage(LookupStage stage, StringBuilder joinClause) {
-        // TODO: Implement lookup conversion
-        // This will involve converting MongoDB $lookup to SQL JOIN statements
+        String fromTable = stage.getFrom();
+        String localField = stage.getLocalField();
+        String foreignField = stage.getForeignField();
+        String alias = stage.getAs();
+
+        // 处理嵌套字段路径
+        String[] localFieldParts = localField.split("\\.");
+        String localFieldColumn = localFieldParts[localFieldParts.length - 1];
+
+        // 构建JOIN语句
+        String joinStatement = String.format(" LEFT JOIN %s %s ON %s.%s = %s.%s",
+            fromTable,
+            alias,
+            this.collectionName,
+            localFieldColumn,
+            alias,
+            foreignField);
+
+        joinClause.append(joinStatement);
     }
     
     /**
@@ -405,20 +435,22 @@ public class DefaultSqlConverter implements SqlConverter {
             path = path.substring(1);
         }
         
-        // 获取数组字段名（去除路径中的点号）
-        String arrayField = path.substring(path.lastIndexOf('.') + 1);
+        // 检查是否是$lookup的结果展开
+        if (path.contains(".")) {
+            String[] parts = path.split("\\.");
+            if (parts.length >= 2) {
+                String tableAlias = parts[0];
+                // 如果这个表是通过$lookup连接的，不需要添加额外的JOIN
+                if (joinClause.toString().contains("JOIN") && joinClause.toString().contains(tableAlias)) {
+                    return;
+                }
+            }
+        }
         
-        // 构建数组元素表名（约定：主表名_字段名）
-        String arrayTableName = String.format("%s_%s", this.collectionName, arrayField);
-        
-        // 构建JOIN子句，使用parent_id作为外键关联
-        String joinStatement = String.format(" %sJOIN %s ON %s.parent_id = %s.id",
-            stage.isPreserveNullAndEmptyArrays() ? "LEFT " : "INNER ",
-            arrayTableName,
-            arrayTableName,
-            this.collectionName);
-        
-        joinClause.append(joinStatement);
+        // 只有真正的数组字段才需要创建关联表
+        // 这里我们暂时不处理这种情况，因为需要更多的上下文信息
+        // 比如需要知道哪些字段是数组类型
+        // 所以目前对于非$lookup的$unwind，我们暂时不做处理
     }
     
     private void handleSetStage(SetStage stage, StringBuilder selectClause) {

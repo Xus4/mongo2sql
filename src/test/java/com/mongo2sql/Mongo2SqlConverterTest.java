@@ -12,9 +12,21 @@ public class Mongo2SqlConverterTest {
 	@Test
 	public void testGenerateJdbcCodeWithSpecialParam() throws JsonMappingException, JsonProcessingException {
 		Mongo2SqlConverter converter = new Mongo2SqlConverter();
-		String mongoQuery = "{\"command\":[\r\n"
-				+ "{\"$match\":{\"$expr\":{\"$eq\":[\"$createdTime\",\"22030101\"]}}},\r\n"
-				+ "{\"$match\":{\"$expr\":{\"$eq\":[\"$subjectCode\",\"22030101\"]}}}]}";
+		String mongoQuery = "{\r\n"
+				+ "  \"command\": [\r\n"
+				+ "    {\r\n"
+				+ "      \"$lookup\": {\r\n"
+				+ "        \"from\": \"open_bank\",\r\n"
+				+ "        \"foreignField\": \"uniqueId\",\r\n"
+				+ "        \"localField\": \"content.formData.bankName\",\r\n"
+				+ "        \"as\": \"bank\"\r\n"
+				+ "      }\r\n"
+				+ "    },\r\n"
+				+ "    {\r\n"
+				+ "      \"$unwind\": \"$bank\"\r\n"
+				+ "    }\r\n"
+				+ "  ]\r\n"
+				+ "}";
 		
 		String collectionName = "testCollection";
 
