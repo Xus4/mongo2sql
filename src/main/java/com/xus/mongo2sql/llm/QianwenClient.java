@@ -25,10 +25,6 @@ public class QianwenClient {
     private static final String API_KEY = "sk-5301c805d71e4e97821cbe4665b16436";
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public String chat(String prompt) throws IOException {
-        return chat(prompt, QianwenRequest.QianwenModel.QWEN_TURBO);
-    }
-
     private QianwenRequest.QianwenModel currentModel;
 
     public QianwenRequest.QianwenModel getCurrentModel() {
