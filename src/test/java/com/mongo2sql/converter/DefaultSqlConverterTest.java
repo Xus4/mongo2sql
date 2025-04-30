@@ -1,5 +1,10 @@
 package com.mongo2sql.converter;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -7,9 +12,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongo2sql.parser.AggregationPipeline;
 import com.mongo2sql.parser.LookupStage;
 import com.mongo2sql.parser.MongoAggregationParser;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class DefaultSqlConverterTest {
     private DefaultSqlConverter converter;

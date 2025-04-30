@@ -1,11 +1,8 @@
 package com.xus.mongo2sql.llm;
 
-import java.util.List;
-
 import org.junit.jupiter.api.Test;
 
 import com.xus.mongo2sql.excel.ExcelMongoParser;
-import com.xus.mongo2sql.llm.model.QianwenRequest;
 
 class QianwenClientTest {
 
@@ -23,7 +20,7 @@ class QianwenClientTest {
 //
 //        // 测试QWEN_TURBO模型
 //        long startTime = System.currentTimeMillis();
-//        String resultTurbo = client.chat(prompt, QianwenRequest.QianwenModel.QWEN_TURBO);
+//        String resultTurbo = client.chat(prompt, ModelType.QWEN_TURBO);
 //        long turboTime = System.currentTimeMillis() - startTime;
 //        System.out.println("\nQWEN_TURBO 模型结果（耗时：" + turboTime + "ms）：");
 //        System.out.println(resultTurbo.trim());
@@ -31,7 +28,7 @@ class QianwenClientTest {
 //
 //        // 测试QWEN_PLUS模型
 //        startTime = System.currentTimeMillis();
-//        String resultPlus = client.chat(prompt, QianwenRequest.QianwenModel.QWEN_PLUS);
+//        String resultPlus = client.chat(prompt, ModelType.QWEN_PLUS);
 //        long plusTime = System.currentTimeMillis() - startTime;
 //        System.out.println("\nQWEN_PLUS 模型结果（耗时：" + plusTime + "ms）：");
 //        System.out.println(resultPlus.trim());
@@ -39,7 +36,7 @@ class QianwenClientTest {
 //        
 //        // 测试QWEN3_235B模型
 //        startTime = System.currentTimeMillis();
-//        String resultQWEN3 = client.chat(prompt, QianwenRequest.QianwenModel.QWEN3_235B);
+//        String resultQWEN3 = client.chat(prompt, ModelType.QWEN3_235B);
 //        long qwen3Time = System.currentTimeMillis() - startTime;
 //        System.out.println("\nQWEN3_235B 模型结果（耗时：" + qwen3Time + "ms）：");
 //        System.out.println(resultQWEN3.trim());
@@ -56,6 +53,6 @@ class QianwenClientTest {
     @Test
     void testExcelConversionAndWrite() throws Exception {
         ExcelMongoParser parser = new ExcelMongoParser();
-        parser.parseAndWriteExcel("G:\\xy_prd.schema0429.xlsx", "G:\\output.xlsx");
+        parser.parseAndWriteExcel("G:\\xy_prd.schema0429_fortest.xlsx", "G:\\output.xlsx");
     }
 }

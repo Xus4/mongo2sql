@@ -16,25 +16,31 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.xus.mongo2sql.llm.model.QianwenRequest;
 import com.xus.mongo2sql.llm.model.QianwenResponse;
+import com.xus.mongo2sql.llm.model.QianwenRequest;
 
-public class QianwenClient {
-    private static final Logger log = LoggerFactory.getLogger(QianwenClient.class);
-    private static final String BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-    private static final String API_KEY = "sk-5301c805d71e4e97821cbe4665b16436";
+public class CommonModelClient implements ModelClient {
+    private static final Logger log = LoggerFactory.getLogger(CommonModelClient.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    private QianwenRequest.QianwenModel currentModel;
+	private ModelConfigForRequest modelConfig;
 
-    public QianwenRequest.QianwenModel getCurrentModel() {
-        return currentModel;
+    public ModelConfigForRequest getModelConfig() {
+		return modelConfig;
+	}
+
+	public void setModelConfig(ModelConfigForRequest modelConfig) {
+		this.modelConfig = modelConfig;
+	}
+
+	public CommonModelClient(ModelConfigForRequest modelConfig) {
+        this.modelConfig = modelConfig;
     }
 
-    public String chat(String prompt, QianwenRequest.QianwenModel model) throws IOException {
-        this.currentModel = model;
+    @Override
+    public String chat(String prompt) throws IOException {
         QianwenRequest request = new QianwenRequest();
-        request.setModel(model.getValue());
+        request.setModel(this.modelConfig.getModelType());
         QianwenRequest.Message message = new QianwenRequest.Message();
         message.setRole("user");
         message.setContent(prompt);
@@ -45,8 +51,8 @@ public class QianwenClient {
         log.debug("Request body: {}", requestBody);
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = new HttpPost(BASE_URL + "/chat/completions");
-            httpPost.setHeader("Authorization", "Bearer " + API_KEY);
+            HttpPost httpPost = new HttpPost(modelConfig.getBaseUrl() + "/chat/completions");
+            httpPost.setHeader("Authorization", "Bearer " + modelConfig.getApiKey());
             httpPost.setHeader("Content-Type", "application/json");
             httpPost.setHeader("Accept", "text/event-stream");
             httpPost.setEntity(new StringEntity(requestBody, StandardCharsets.UTF_8));

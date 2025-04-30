@@ -5,8 +5,6 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 public class Mongo2SqlConverterTest {
 
 	@Test
