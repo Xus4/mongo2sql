@@ -11,7 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.poi.ss.usermodel.Cell;
@@ -33,10 +34,28 @@ import com.xus.mongo2sql.llm.model.QianwenRequest;
 
 public class ExcelMongoParser {
 	private static final Logger logger = LoggerFactory.getLogger(ExcelMongoParser.class);
-	private static final int MAX_CONCURRENT_REQUESTS = 20;
-	private static final int THREAD_POOL_SIZE = MAX_CONCURRENT_REQUESTS * 2; // 考虑到每个请求会创建两个子任务
-	private final ExecutorService executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+	private static final int MAX_CONCURRENT_REQUESTS = 100;
+	private static final int CORE_POOL_SIZE = 50;
+	private static final int MAX_POOL_SIZE = 100;
+	private static final int QUEUE_CAPACITY = 2000;
+	private static final long KEEP_ALIVE_TIME = 60L;
+	private final ExecutorService executorService = new ThreadPoolExecutor(
+	    CORE_POOL_SIZE,
+	    MAX_POOL_SIZE,
+	    KEEP_ALIVE_TIME,
+	    TimeUnit.SECONDS,
+	    new LinkedBlockingQueue<>(QUEUE_CAPACITY),
+	    new ThreadPoolExecutor.CallerRunsPolicy());
 
+	
+	ModelClient qianwenClient = new CommonModelClient(
+			new ModelConfigForRequest("sk-5301c805d71e4e97821cbe4665b16436",
+					"https://dashscope.aliyuncs.com/compatible-mode/v1", ModelType.QWEN3_235B.getValue()));
+	ModelClient dsClient = new CommonModelClient(
+			new ModelConfigForRequest("sk-5301c805d71e4e97821cbe4665b16436",
+					"https://dashscope.aliyuncs.com/compatible-mode/v1", ModelType.DEEPSEEK_R1.getValue()));
+	
+	
 	public static class MongoCommand {
 		private String command;
 		private String collectionName; // 添加collectionName属性
@@ -144,12 +163,6 @@ public class ExcelMongoParser {
 				int commandSize = (int) srcCell4.getNumericCellValue();
 				final int rowIndex = i;
 
-				ModelClient qianwenClient = new CommonModelClient(
-						new ModelConfigForRequest("sk-5301c805d71e4e97821cbe4665b16436",
-								"https://dashscope.aliyuncs.com/compatible-mode/v1", ModelType.QWEN3_235B.getValue()));
-				ModelClient dsClient = new CommonModelClient(
-						new ModelConfigForRequest("sk-5301c805d71e4e97821cbe4665b16436",
-								"https://dashscope.aliyuncs.com/compatible-mode/v1", ModelType.DEEPSEEK_R1.getValue()));
 
 				MongoCommand mongoCommand = new MongoCommand(command, collectionName, commandSize, rowIndex);
 
@@ -157,9 +170,18 @@ public class ExcelMongoParser {
 					Map<String, String> results = new HashMap<>();
 					try {
 						CompletableFuture<String> future1 = CompletableFuture
-								.supplyAsync(() -> convertMongoToSql(mongoCommand, qianwenClient), executorService);
+								.supplyAsync(() -> convertMongoToSql(mongoCommand, qianwenClient), executorService)
+								.exceptionally(e -> {
+									logger.error("千问模型转换失败", e);
+									return "转换错误：" + e.getMessage();
+								});
+
 						CompletableFuture<String> future2 = CompletableFuture
-								.supplyAsync(() -> convertMongoToSql(mongoCommand, dsClient), executorService);
+								.supplyAsync(() -> convertMongoToSql(mongoCommand, dsClient), executorService)
+								.exceptionally(e -> {
+									logger.error("DeepSeek模型转换失败", e);
+									return "转换错误：" + e.getMessage();
+								});
 
 						String sql = future1.get(300, TimeUnit.SECONDS);
 						String sql_r1 = future2.get(300, TimeUnit.SECONDS);
@@ -193,10 +215,7 @@ public class ExcelMongoParser {
 								resultRow.createCell(6, CellType.STRING).setCellValue(results.get("sql_r1"));
 								
 
-								System.out.println("转化结果----序号：" + rowIndex + "，集合名：" + results.get("collectionName")
-										+ "，MongoDB脚本：\n" + destRows.get(rowIndex).getCell(2) + "\n" + ModelType.QWEN3_235B
-										+ "转化后SQL:\n " + "\n " + results.get("sql") + "\n\n" + ModelType.DEEPSEEK_R1
-										+ "转化后SQL:\n " + "\n " + results.get("sql_r1"));
+								logger.info("转化结果----序号：" + results.get("rowIndex") + "，集合名：" + results.get("collectionName") + "，MongoDB脚本：\n" + resultRow.getCell(2) + "\n" + ModelType.QWEN3_235B + "转化后SQL:\n " + "\n " + results.get("sql") + "\n\n" + ModelType.DEEPSEEK_R1 + "转化后SQL:\n " + "\n " + results.get("sql_r1"));
 								System.out.println("\n\n");
 							}
 						} catch (Exception e) {
@@ -242,6 +261,8 @@ public class ExcelMongoParser {
 				.append("7. MongoDB脚本中的_id和uniqueId字段，转成mysql sql后，映射为id字段。")
 				.append("8. MongoDB脚本中所有pipeline都需要处理，包括$group。").append("9. 注意使用$lookup中的as属性来起别名。")
 				.append("10. unwind里如果没有使用\"preserveNullAndEmptyArrays\": true，则用‌INNER JOIN，存在用left join。")
+				.append("11. 不要使用mysql json语法。")
+
 				.append("MongoDB脚本为：").append(cmd.getCommand());
 
 		String prompt = promptBuilder.toString();
@@ -256,8 +277,7 @@ public class ExcelMongoParser {
 				result = client.chat(prompt);
 				result = QianwenRequest.cleanSql(result);
 				long duration = System.currentTimeMillis() - startTime;
-				System.out.println("第 "+cmd.getIndex()+" 个转化完毕！集合名：" + collectionName + "，模型是:" + client.getModelConfig().getModelType()
-						+ ", 耗时：" + duration + "ms");
+				logger.info("第 "+cmd.getIndex()+" 个转化完毕！集合名：" + collectionName + "，模型是:" + client.getModelConfig().getModelType() + ", 耗时：" + duration + "ms");
 				break;
 			} catch (IOException e) {
 				retryCount++;

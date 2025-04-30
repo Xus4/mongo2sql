@@ -16,8 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.xus.mongo2sql.llm.model.QianwenResponse;
 import com.xus.mongo2sql.llm.model.QianwenRequest;
+import com.xus.mongo2sql.llm.model.QianwenResponse;
 
 public class CommonModelClient implements ModelClient {
     private static final Logger log = LoggerFactory.getLogger(CommonModelClient.class);
