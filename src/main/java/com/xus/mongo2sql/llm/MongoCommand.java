@@ -1,12 +1,15 @@
 package com.xus.mongo2sql.llm;
 public class MongoCommand {
+	
+	private String uniqueCode;
 		private String sourceCommand;
 		private String command;
 		private String collectionName; // 添加collectionName属性
 		private int commandSize;
 		private int index;
 
-		public MongoCommand(String sourceCommand,String command, String collectionName, int commandSize, int index) {
+		public MongoCommand(String uniqueCode,String sourceCommand,String command, String collectionName, int commandSize, int index) {
+			this.uniqueCode=uniqueCode;
 			this.sourceCommand =sourceCommand;
 			this.command = command;
 			this.collectionName = collectionName;
@@ -53,5 +56,13 @@ public class MongoCommand {
 
 		public void setSourceCommand(String sourceCommand) {
 			this.sourceCommand = sourceCommand;
+		}
+
+		public String getUniqueCode() {
+			return uniqueCode;
+		}
+
+		public void setUniqueCode(String uniqueCode) {
+			this.uniqueCode = uniqueCode;
 		}
 	}
