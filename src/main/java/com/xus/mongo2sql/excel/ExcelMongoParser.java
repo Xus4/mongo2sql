@@ -131,7 +131,7 @@ public class ExcelMongoParser {
 								});
 
 						// String sql = future1.get(300, TimeUnit.SECONDS);
-						String sql_r1 = future2.get(300, TimeUnit.SECONDS);
+						String sql_r1 = future2.get(500, TimeUnit.SECONDS);
 
 						// results.put("sql", sql);
 						results.put("sql_r1", sql_r1);
@@ -203,15 +203,16 @@ public class ExcelMongoParser {
 		String collectionName = cmd.getCollectionName();
 		long startTime = System.currentTimeMillis();
 		StringBuilder promptBuilder = new StringBuilder();
-		promptBuilder.append("请将以下MongoDB聚合查询转换为Oracle 11g版本 SQL语句，只需要输出SQL语句本身，输出的结果要美化显示，当前MongoDB脚本对应的collection name 为")
+		promptBuilder.append("请将以下MongoDB聚合查询转换为Oracle 12c SQL语句，只需要输出SQL语句本身，输出的结果要美化显示，当前MongoDB脚本对应的collection name 为")
 				.append(collectionName)
 				.append("，转换规则有：")
 				.append("1. content.formData.x是固定的写法，在数据库转换时，已经默认扁平化处理，也就是去掉了前缀content.formData，只保留了后面的x,遇到content.formData按照扁平化的结构处理。")
 				.append("2. $:和$$:开头的和${}包裹的都是自定义的占位符，用于变量替换的，这样的地方直接保留即可，作为字符串,使用单引号包裹，不需要做其他任何处理。")
-				.append("3. 不要添加任何markdown的格式符号。如` 。").append("4. Boolean类型的true改为字符串类型。")
+				.append("3. 不要添加任何markdown的格式符号。如` 。")
+				.append("4. Boolean类型的true改为字符串类型。")
 				.append("5. 对于脚本中出现的驼峰式字段，保留驼峰式的命名方式，不需要改写成下划线连接的形式。")
 				.append("6. unwind中path为content.formData.x识别为从表,表名为：主表_x,主表中的id为从表中的parentId。")
-				.append("7. MongoDB脚本中的_id和uniqueId字段，转成mysql sql后，当做id字段处理。")
+				.append("7. MongoDB脚本中的_id和uniqueId字段，在关系型数据库中人工转成id字段。转成后不要再出现_id和uniqueId，用id替代即可。")
 				.append("8. MongoDB脚本中所有pipeline都需要处理，包括$group。")
 				.append("9. 注意使用$lookup中的as属性来起别名。")
 				.append("10. unwind里如果没有使用\"preserveNullAndEmptyArrays\": true，则用‌INNER JOIN，存在用left join。")
