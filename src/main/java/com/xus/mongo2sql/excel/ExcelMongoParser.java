@@ -220,7 +220,7 @@ public class ExcelMongoParser {
 				.append("12. 给主表起别名固定为main_content即可。")
 
 				.append("MongoDB脚本为：").append(cmd.getCommand());
-
+				//TODO:通过明确转化规则，可以解决50%以上的问题，还需要增加难以规则化描述的转化案例，让大模型自主学习转化的规律。
 		String prompt = promptBuilder.toString();
 
 		String result = "";

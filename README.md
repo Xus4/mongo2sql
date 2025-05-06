@@ -16,6 +16,9 @@
   - 基于Freemarker模板引擎
   - 生成完整可执行的Java代码
   - 支持自定义集合名称映射到表名
+- 大模型能力转换
+  - 使用大模型进行复杂查询的优化和转换
+  - 提供更高效的查询执行策略
 
 ## 快速开始
 
@@ -69,6 +72,10 @@ String jdbcCode = converter.generateJdbcCode(mongoQuery, "orders");
 3. **代码生成器**
    - `FreemarkerJdbcGenerator`: 基于模板生成JDBC代码
    - 支持参数绑定和SQL执行
+
+4. **大模型转换器**
+   - `LargeModelOptimizer`: 使用大模型优化查询策略
+   - 提供更高效的SQL执行路径
 
 ## 支持的MongoDB操作符
 
