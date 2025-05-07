@@ -131,7 +131,7 @@ public class ExcelMongoParser {
 								});
 
 						// String sql = future1.get(300, TimeUnit.SECONDS);
-						String sql_r1 = future2.get(500, TimeUnit.SECONDS);
+						String sql_r1 = future2.get(1000, TimeUnit.SECONDS);
 
 						// results.put("sql", sql);
 						results.put("sql_r1", sql_r1);
