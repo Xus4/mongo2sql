@@ -35,8 +35,8 @@ import com.xus.mongo2sql.llm.model.QianwenRequest;
 
 public class ExcelMongoParser {
 	private static final Logger logger = LoggerFactory.getLogger(ExcelMongoParser.class);
-	private static final int MAX_CONCURRENT_REQUESTS = 20;//不能大于CORE_POOL_SIZE，否则等待会超时
-	private static final int CORE_POOL_SIZE = 20;
+	private static final int MAX_CONCURRENT_REQUESTS = 50;//不能大于CORE_POOL_SIZE，否则等待会超时
+	private static final int CORE_POOL_SIZE = 50;
 	
 	private static final int MAX_POOL_SIZE = 200;
 	private static final int QUEUE_CAPACITY = 1000;
