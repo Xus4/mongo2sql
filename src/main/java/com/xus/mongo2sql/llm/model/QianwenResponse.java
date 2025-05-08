@@ -2,6 +2,7 @@ package com.xus.mongo2sql.llm.model;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class QianwenResponse {
@@ -69,7 +70,7 @@ public class QianwenResponse {
     public void setId(String id) {
         this.id = id;
     }
-
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Choice {
         private Message message;
         private Message delta;
