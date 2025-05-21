@@ -1,7 +1,7 @@
 # Mongo2SQL 转换工具
 
 ## 项目简介
-Mongo2SQL是一个强大的MongoDB聚合查询转换工具，能够将MongoDB的聚合管道查询语句智能转换为各种SQL方言。通过灵活的提示词配置，支持转换为不同类型的SQL语句（如MySQL、PostgreSQL、Oracle等），特别适用于数据库迁移或需要在MongoDB和关系型数据库之间进行数据查询转换的场景。
+Mongo2SQL是一个MongoDB聚合查询转换工具，能够将MongoDB的聚合管道查询语句智能转换为各种SQL方言。通过灵活的提示词配置，支持转换为不同类型的SQL语句（如MySQL、PostgreSQL、Oracle等），特别适用于数据库迁移或需要在MongoDB和关系型数据库之间进行数据查询转换的场景。
 
 ## 核心功能
 - **MongoDB聚合查询转换**：支持将复杂的MongoDB聚合管道操作转换为等效的SQL语句，支持多种SQL方言
@@ -32,20 +32,8 @@ Mongo2SQL是一个强大的MongoDB聚合查询转换工具，能够将MongoDB的
 ### 环境要求
 - Java 8或更高版本
 - Maven 3.x
-
-### 安装步骤
-1. 克隆项目到本地
-```bash
-git clone https://github.com/xus/mongo2sql.git
-```
-
-2. 使用Maven安装依赖
-```bash
-mvn clean install
-```
-
-### Excel批量处理
-1. 准备输入Excel文件，包含以下列：
+### 从Excel读取MongoDB语句进行批量处理
+1. 准备输入Excel文件，包含以下列（按需）：
    - 唯一标识码
    - MongoDB查询语句
    - 集合名称
