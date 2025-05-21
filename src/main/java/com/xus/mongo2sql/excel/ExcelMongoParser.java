@@ -48,7 +48,7 @@ public class ExcelMongoParser {
 //	ModelClient qianwenClient = new CommonModelClient(
 //			new ModelConfigForRequest("sk-5301c805d71e4e97821cbe4665b16436",
 //					"https://dashscope.aliyuncs.com/compatible-mode/v1", ModelType.QWEN3_235B.getValue()));
-	ModelClient dsClient = new CommonModelClient(new ModelConfigForRequest("sk-5301c805d71e4e97821cbe4665b16436",
+	ModelClient dsClient = new CommonModelClient(new ModelConfigForRequest("yourapikey",
 			"https://dashscope.aliyuncs.com/compatible-mode/v1", ModelType.DEEPSEEK_R1.getValue()));
 
 	public List<MongoCommand> parseAndWriteExcel(String inputFilePath, String outputFilePath) throws IOException {
